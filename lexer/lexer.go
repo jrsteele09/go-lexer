@@ -1,12 +1,6 @@
 package lexer
 
-import (
-	"errors"
-	"log"
-	"strconv"
-	"strings"
-	"unicode"
-)
+import "github.com/pkg/errors"
 
 const (
 	NullType = iota
@@ -18,6 +12,11 @@ const (
 	LastStdLiteral
 )
 
+var (
+	newLine rune = '\n'
+)
+
+// Lexer performs lexical analysis on a stream of input.
 type Lexer struct {
 	overflowRune      *rune
 	currentCommentEnd *string
@@ -26,79 +25,88 @@ type Lexer struct {
 	language          *LanguageConfig
 }
 
+// NewLexer initializes a new Lexer with the given language configuration.
 func NewLexer(language *LanguageConfig) *Lexer {
 	return &Lexer{
-		// tokens:   make([]*Token, 0),
 		language: language,
 	}
 }
 
+// TokenizeLine tokenizes a single line of input and returns an array of tokens.
 func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]Token, error) {
 	var tokens []Token
 
 	addNewToken := func(column int, token *Token) {
-		if token == nil {
-			return
-		}
 		l.firstLineToken = false
 		token.SourceLine = lineNo
 		token.SourceColumn = uint(column)
 		tokens = append(tokens, *token)
 	}
 
-	tokenFactory := l.TokenFactory()
+	tokenFactory := NewTokenFactory(l)
 
-	skipNextChar := false
+	skipNextRune := false
 	l.firstLineToken = true
 
 	for i, r := range line {
-		if l.terminateDueToComment() {
+		if l.commentOnEndOfLine() {
 			break
 		}
-		if string(r) == "\n" {
-			break
-		}
-		if skipNextChar {
-			skipNextChar = false
+		if skipNextRune {
+			skipNextRune = false
 			continue
 		}
 		if l.endOfComment(i, line) {
-			skipNextChar = true
+			skipNextRune = true
 			continue
 		}
 		if l.inComment() {
 			continue
 		}
 		if l.startOfComment(i, line) {
-			skipNextChar = true
+			skipNextRune = true
 		}
 
-		addNewToken(i, tokenFactory(r))
-		if l.hasRuneOverflow() {
-			addNewToken(i, tokenFactory(*l.overflowRune))
-			l.overflowRune = nil
+		runePtr := &r
+
+		for {
+			if token, err := tokenFactory.Tokenizer(*runePtr); err != nil {
+				return nil, errors.Wrap(err, "Lexer.TokenizeLine.tokenFactory.Tokenizer")
+			} else if token != nil {
+				addNewToken(i, token)
+			}
+			if l.hasRuneOverflow() {
+				runePtr = l.overflowRune
+				l.overflowRune = nil
+				continue
+			}
+			break
 		}
 	}
 
-	addNewToken(len(line), tokenFactory('\n')) // Finish off parsing the end of the line token
-	if len(tokens) > 0 {
-		addNewToken(len(line), NewToken(EndOfLineType, "\n", nil))
+	// Process the token at the end of the line
+	if token, err := tokenFactory.Tokenizer(newLine); err != nil {
+		return nil, errors.Wrap(err, "Lexer.TokenizeLine.tokenFactory.Tokenizer")
+	} else if token != nil {
+		addNewToken(len(line), token)
 	}
 
 	return tokens, nil
 }
 
-func (l *Lexer) terminateDueToComment() bool {
+// commentOnEndOfLine checks if the comment ends at the end of a line.
+func (l *Lexer) commentOnEndOfLine() bool {
 	if l.currentCommentEnd == nil {
 		return false
 	}
-	if *l.currentCommentEnd != "\n" {
+	if *l.currentCommentEnd != string(newLine) {
 		return false
 	}
 	l.currentCommentEnd = nil
 	return true
 }
 
+// startOfComment identifies the start of a comment in a given line.
 func (l *Lexer) startOfComment(idx int, line string) bool {
 	if l.parsingString {
 		return false
@@ -122,6 +130,7 @@ func (l *Lexer) startOfComment(idx int, line string) bool {
 	return false
 }
 
+// endOfComment identifies the end of a comment in a given line.
 func (l *Lexer) endOfComment(idx int, line string) bool {
 	if l.currentCommentEnd == nil {
 		return false
@@ -141,141 +150,12 @@ func (l *Lexer) endOfComment(idx int, line string) bool {
 	return true
 }
 
+// inComment checks if the Lexer is currently inside a comment.
 func (l *Lexer) inComment() bool {
 	return l.currentCommentEnd != nil
 }
 
+// hasRuneOverflow checks if there's a pending rune to process.
 func (l *Lexer) hasRuneOverflow() bool {
 	return !l.inComment() && l.overflowRune != nil
-}
-
-func (l *Lexer) TokenFactory() func(runeChar rune) *Token {
-	var tokenizer func(r rune) *Token
-
-	return func(runeChar rune) *Token {
-		var token *Token
-
-		if tokenizer == nil {
-			if l.inComment() {
-				return nil
-			}
-			if singleCharToken := l.language.createSingleCharToken(runeChar); singleCharToken != nil {
-				return singleCharToken
-			}
-			if unicode.IsSpace(runeChar) {
-				return nil
-			}
-			var err error
-			if tokenizer, err = l.getTokenizer(runeChar); err != nil {
-				log.Println(err)
-				return nil
-			}
-		}
-
-		token = tokenizer(runeChar)
-		if token != nil {
-			tokenizer = nil
-		}
-		return token
-	}
-}
-
-func (l *Lexer) getTokenizer(runeChar rune) (func(rune) *Token, error) {
-	if IsDigit(runeChar) {
-		return l.numberTokenizer(), nil
-
-	} else if IsStringQuotes(runeChar) {
-		return l.stringTokenizer(runeChar), nil
-
-	} else if IsIdentifierChar(runeChar, 0) {
-		return l.identifierTokenizer(), nil
-	}
-
-	return nil, errors.New("unknown character: \"" + string(runeChar) + "\"")
-}
-
-func (l *Lexer) numberTokenizer() func(rune) *Token {
-	var parsedString string
-
-	return func(runeChar rune) *Token {
-		if IsDigit(runeChar) {
-			parsedString = parsedString + string(runeChar)
-		} else {
-			l.overflowRune = &runeChar
-			number, _ := l.stringToNumber(parsedString)
-			switch number.(type) {
-			case float64:
-				return NewToken(NumberLiteral, parsedString, number)
-			case int64:
-				return NewToken(IntegerLiteral, parsedString, number)
-			}
-			return NewToken(NumberLiteral, parsedString, number)
-		}
-		return nil
-	}
-}
-
-func (l *Lexer) stringToNumber(strNum string) (interface{}, error) {
-	if strings.Contains(strNum, ".") {
-		return strconv.ParseFloat(strNum, 10)
-	}
-	return strconv.ParseInt(strNum, 10, 64)
-}
-
-func (l *Lexer) stringTokenizer(runeChar rune) func(rune) *Token {
-	startRune := string(runeChar)
-	openingString := true
-	var parsedString string
-	l.parsingString = true
-
-	return func(runeChar rune) *Token {
-		if openingString {
-			openingString = false
-			return nil
-		}
-		if string(runeChar) == startRune {
-			l.parsingString = false
-			return NewToken(StringLiteral, "", parsedString)
-		}
-
-		parsedString += string(runeChar)
-		return nil
-	}
-}
-
-func (l *Lexer) identifierTokenizer() func(rune) *Token {
-	var parsedString string
-
-	return func(runeChar rune) *Token {
-		if l.language.labelTerminator != nil && l.firstLineToken && runeChar == *l.language.labelTerminator {
-			return NewToken(l.language.labelToken, parsedString+string(runeChar), "")
-		}
-		if !IsIdentifierChar(runeChar, len(parsedString)) {
-			l.overflowRune = &runeChar
-			return l.language.tokenFromIdentifier(parsedString)
-		}
-		parsedString += string(runeChar)
-		return nil
-	}
-}
-
-func IsDigit(runeChar rune) bool {
-	const extraDigits = "."
-	return unicode.IsDigit(runeChar) || strings.Contains(extraDigits, string(runeChar))
-}
-
-func IsIdentifierChar(runeChar rune, pos int) bool {
-	if unicode.IsLetter(runeChar) {
-		return true
-	}
-	if pos > 0 && IsDigit(runeChar) {
-		return true
-	}
-
-	return strings.Contains("_#%", string(runeChar))
-}
-
-func IsStringQuotes(runeChar rune) bool {
-	const startOfString = "\"'`"
-	return strings.Contains(startOfString, string(runeChar))
 }

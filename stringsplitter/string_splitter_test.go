@@ -1,4 +1,4 @@
-package lexer
+package stringssplitter
 
 import (
 	"testing"
