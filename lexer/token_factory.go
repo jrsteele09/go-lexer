@@ -29,8 +29,8 @@ func (tf *TokenFactory) defaultTokenizer(r rune) (*Token, error) {
 	}
 
 	// Check if we can create a single rune token
-	if tokenId, ok := tf.lexer.language.singleRuneTokens[r]; ok {
-		return NewToken(tokenId, string(r), nil), nil
+	if tokenID, ok := tf.lexer.language.singleRuneTokens[r]; ok {
+		return NewToken(tokenID, string(r), nil), nil
 	}
 
 	// Check if we can use a numberTokenizer

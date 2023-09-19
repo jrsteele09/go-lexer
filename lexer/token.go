@@ -11,7 +11,7 @@ type TokenIdentifier int16
 // Each token has an identifier, a literal string representation, and an optional value.
 // The SourceLine and SourceColumn fields represent the token's position in the source text.
 type Token struct {
-	Id           TokenIdentifier // The identifier for the type of token.
+	ID           TokenIdentifier // The identifier for the type of token.
 	Literal      string          // The literal string content of the token.
 	Value        interface{}     // The value that the token represents, can be nil.
 	SourceLine   uint            // The line in the source text where this token occurs.
@@ -21,7 +21,7 @@ type Token struct {
 // String returns a string representation of a Token instance.
 // The representation includes the token's identifier, its literal string, and its value.
 func (t Token) String() string {
-	return fmt.Sprintf("%d: %s: %v", int(t.Id), t.Literal, t.Value)
+	return fmt.Sprintf("%d: %s: %v", int(t.ID), t.Literal, t.Value)
 }
 
 // NewToken is a constructor function for creating a new Token.
@@ -29,7 +29,7 @@ func (t Token) String() string {
 // and an optional value that the token represents.
 func NewToken(id TokenIdentifier, literal string, value interface{}) *Token {
 	return &Token{
-		Id:      id,
+		ID:      id,
 		Literal: literal,
 		Value:   value,
 	}

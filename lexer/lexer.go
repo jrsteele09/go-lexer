@@ -3,17 +3,31 @@ package lexer
 import "github.com/pkg/errors"
 
 const (
+	// NullType represents a null or undefined token type.
 	NullType = iota
+
+	// EOFType represents the end-of-file token type.
 	EOFType
+
+	// EndOfLineType represents the end-of-line token type.
 	EndOfLineType
+
+	// IntegerLiteral represents an integer literal token type.
 	IntegerLiteral
+
+	// NumberLiteral represents a floating-point number literal token type.
 	NumberLiteral
+
+	// StringLiteral represents a string literal token type.
 	StringLiteral
+
+	// LastStdLiteral serves as a marker for the last standard literal token type.
+	// Any custom token types should be declared after this constant.
 	LastStdLiteral
 )
 
 var (
-	newLine rune = '\n'
+	newLine = '\n'
 )
 
 // Lexer performs lexical analysis on a stream of input.
@@ -67,7 +81,8 @@ func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]Token, error) {
 			skipNextRune = true
 		}
 
-		runePtr := &r
+		currentRune := r
+		runePtr := &currentRune
 
 		for {
 			if token, err := tokenFactory.Tokenizer(*runePtr); err != nil {

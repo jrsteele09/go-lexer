@@ -24,9 +24,8 @@ func StringSplitter(splitStr string, listOfQuotes ...string) func(str string) []
 	isQuote := func(s string) bool {
 		if _, found := quoteMap[s]; found {
 			return true
-		} else {
-			return false
 		}
+		return false
 	}
 
 	startQuote := func(s, endQuote string) bool { return endQuote == "" && isQuote(s[:1]) }
