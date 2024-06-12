@@ -33,13 +33,21 @@ func WithLabelSettings(terminator rune, labelTokenID TokenIdentifier) LanguageOp
 	}
 }
 
+// WithExtraIdentifierRunes is a string of individual runes that can also be used to name identifiers
+func WithExtraIdentifierRunes(extraIdentifierRunes string) LanguageOptions {
+	return func(ll *LanguageConfig) {
+		ll.extraIdentifierRunes = extraIdentifierRunes
+	}
+}
+
 // LanguageConfig is the struct containing the configurations for the lexer.
 type LanguageConfig struct {
-	singleRuneTokens map[rune]TokenIdentifier         // Map of single-rune tokens.
-	comments         map[string]string                // Map of comment delimiters.
-	tokenCreators    []func(identifier string) *Token // Custom token creators.
-	labelTerminator  *rune                            // Label terminator rune.
-	labelToken       TokenIdentifier                  // Label token identifier.
+	singleRuneTokens     map[rune]TokenIdentifier         // Map of single-rune tokens.
+	comments             map[string]string                // Map of comment delimiters.
+	extraIdentifierRunes string                           // Map of extra chars (runes) that can be part of an identifier name
+	tokenCreators        []func(identifier string) *Token // Custom token creators.
+	labelTerminator      *rune                            // Label terminator rune.
+	labelToken           TokenIdentifier                  // Label token identifier.
 }
 
 // NewLexerLanguage creates a new LanguageConfig using the provided options.

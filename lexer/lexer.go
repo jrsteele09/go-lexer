@@ -1,10 +1,12 @@
 package lexer
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 const (
 	// NullType represents a null or undefined token type.
-	NullType = iota
+	NullType TokenIdentifier = iota
 
 	// EOFType represents the end-of-file token type.
 	EOFType
@@ -17,6 +19,9 @@ const (
 
 	// NumberLiteral represents a floating-point number literal token type.
 	NumberLiteral
+
+	// Hex Literal represents a hexadecimal number literal token type
+	HexLiteral
 
 	// StringLiteral represents a string literal token type.
 	StringLiteral
@@ -79,19 +84,17 @@ func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]Token, error) {
 		}
 		if l.startOfComment(i, line) {
 			skipNextRune = true
+			continue
 		}
 
-		currentRune := r
-		runePtr := &currentRune
-
 		for {
-			if token, err := tokenFactory.Tokenizer(*runePtr); err != nil {
+			if token, err := tokenFactory.Tokenizer(r); err != nil {
 				return nil, errors.Wrap(err, "Lexer.TokenizeLine.tokenFactory.Tokenizer")
 			} else if token != nil {
 				addNewToken(i, token)
 			}
 			if l.hasRuneOverflow() {
-				runePtr = l.overflowRune
+				r = *l.overflowRune
 				l.overflowRune = nil
 				continue
 			}

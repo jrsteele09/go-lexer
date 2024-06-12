@@ -2,6 +2,29 @@ package stringssplitter
 
 import "strings"
 
+type quoteMap map[string]struct{}
+
+func (q quoteMap) isQuote(s string) bool {
+	_, found := q[s]
+	return found
+}
+
+func (q quoteMap) startQuote(s string) bool {
+	return q.isQuote(s[:1])
+}
+
+func (q quoteMap) endQuote(s, currentQuote string) bool {
+	return currentQuote != "" && s[len(s)-1:] == currentQuote
+}
+
+func NewQuoteMap(quotes ...string) quoteMap {
+	q := make(quoteMap)
+	for _, quote := range quotes {
+		q[quote] = struct{}{}
+	}
+	return q
+}
+
 // StringSplitter returns a closure that takes a string and splits it based on the given delimiter (splitStr).
 // The function also takes an optional list of quotes (listOfQuotes) to treat substrings within quotes as a single unit during the split.
 //
@@ -14,51 +37,42 @@ import "strings"
 //
 // Returns:
 // A function that takes a string and returns a slice of strings based on the delimiter and quotes.
-func StringSplitter(splitStr string, listOfQuotes ...string) func(str string) []string {
-	quoteMap := make(map[string]struct{})
-
-	for _, q := range listOfQuotes {
-		quoteMap[q] = struct{}{}
-	}
-
-	isQuote := func(s string) bool {
-		if _, found := quoteMap[s]; found {
-			return true
-		}
-		return false
-	}
-
-	startQuote := func(s, endQuote string) bool { return endQuote == "" && isQuote(s[:1]) }
-	endQuote := func(s, endQuote string) bool { return endQuote != "" && s[len(s)-1:] == endQuote }
+func StringSplitter(splitToken string, listOfQuotes ...string) func(str string) []string {
+	quoteMap := NewQuoteMap(listOfQuotes...)
 
 	return func(str string) []string {
 		if strings.TrimSpace(str) == "" {
 			return []string{}
 		}
 
-		split := strings.Split(strings.TrimSpace(str), splitStr)
+		listOfStrings := strings.Split(strings.TrimSpace(str), splitToken)
 
-		if len(split) < 2 {
-			return split
+		if len(listOfStrings) < 2 {
+			return listOfStrings
 		}
 
 		idx := 0
-		var endQuoteString, spacer string
+		var currentQuote string
+		stringList := make([]string, len(listOfStrings))
 
-		commands := make([]string, len(split))
-		for _, s := range split {
-			if startQuote(s, endQuoteString) {
-				endQuoteString, spacer = s[:1], " "
+		for i := range listOfStrings {
+			s := listOfStrings[i]
+			if currentQuote == "" && quoteMap.startQuote(strings.TrimLeft(s, " ")) {
+				s = strings.TrimLeft(s, " ")
+				currentQuote = s[:1]
 			}
-			commands[idx] = strings.TrimSpace(commands[idx] + spacer + s)
-			if endQuote(s, endQuoteString) {
-				endQuoteString, spacer = "", ""
+			if quoteMap.endQuote(strings.TrimRight(s, " "), currentQuote) {
+				s = strings.TrimRight(s, " ")
+				currentQuote = ""
 			}
-			if endQuoteString == "" {
+			stringList[idx] = (stringList[idx] + s)
+			if currentQuote == "" {
 				idx++
+			} else {
+				stringList[idx] = (stringList[idx] + splitToken) // Put back the split token
 			}
 		}
 
-		return commands[:idx]
+		return stringList[:idx]
 	}
 }

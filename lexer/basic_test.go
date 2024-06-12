@@ -10,23 +10,25 @@ import (
 
 // Constant declarations for different types of tokens
 const (
-	IfStatementToken     = 0x8B
-	LetStatementToken    = 0x88
-	ForStatementToken    = 0x81
-	ToStatementToken     = 0xA4
-	NextStatementToken   = 0x82
-	AddSymbolToken       = 0xAA
-	DivideSymbolToken    = 0xAD
-	MinusSymbolToken     = 0xAB
-	AsterixSymbolToken   = 0xAC
-	EqualsSymbolToken    = 0xB2
-	LeftParenthesis      = 0xF0
-	RightParenthesis     = 0xF1
-	LabelToken           = 0xF2
-	ColonToken           = 0xF3
-	StringVariableToken  = 0xF4
-	IntegerVariableToken = 0xF5
-	NumberVariableToken  = 0xF6
+	IfStatementToken     lexer.TokenIdentifier = 0x8B
+	LetStatementToken    lexer.TokenIdentifier = 0x88
+	ForStatementToken    lexer.TokenIdentifier = 0x81
+	ToStatementToken     lexer.TokenIdentifier = 0xA4
+	NextStatementToken   lexer.TokenIdentifier = 0x82
+	AddSymbolToken       lexer.TokenIdentifier = 0xAA
+	DivideSymbolToken    lexer.TokenIdentifier = 0xAD
+	MinusSymbolToken     lexer.TokenIdentifier = 0xAB
+	AsterixSymbolToken   lexer.TokenIdentifier = 0xAC
+	EqualsSymbolToken    lexer.TokenIdentifier = 0xB2
+	LeftParenthesis      lexer.TokenIdentifier = 0xF0
+	RightParenthesis     lexer.TokenIdentifier = 0xF1
+	LabelToken           lexer.TokenIdentifier = 0xF2
+	ColonToken           lexer.TokenIdentifier = 0xF3
+	StringVariableToken  lexer.TokenIdentifier = 0xF4
+	IntegerVariableToken lexer.TokenIdentifier = 0xF5
+	NumberVariableToken  lexer.TokenIdentifier = 0xF6
+	DollarToken          lexer.TokenIdentifier = 0xF7
+	CommaToken           lexer.TokenIdentifier = 0xF8
 )
 
 // KeywordTokens defines keyword to token mappings
@@ -48,6 +50,8 @@ var SingleCharTokens = map[rune]lexer.TokenIdentifier{
 	'*': AsterixSymbolToken,
 	'=': EqualsSymbolToken,
 	':': ColonToken,
+	'$': DollarToken,
+	',': CommaToken,
 }
 
 // comments defines comment syntax mappings
@@ -63,6 +67,10 @@ func TestBasicExpression(t *testing.T) {
 	tokens, err := l.TokenizeLine("let a = 10", 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(tokens))
+	require.Equal(t, LetStatementToken, tokens[0].ID)
+	require.Equal(t, IntegerVariableToken, tokens[1].ID)
+	require.Equal(t, EqualsSymbolToken, tokens[2].ID)
+	require.Equal(t, lexer.IntegerLiteral, tokens[3].ID)
 }
 
 // TestIdentifierExpressionWithComment tests tokenization when a comment follows an identifier
@@ -72,6 +80,7 @@ func TestIdentifierExpressionWithComment(t *testing.T) {
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(tokens))
+	require.Equal(t, IntegerVariableToken, tokens[0].ID)
 }
 
 // TestIdentifierExpressionWithComment
@@ -99,6 +108,25 @@ func TestFloatLexer(t *testing.T) {
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(tokens))
+	require.Equal(t, lexer.NumberLiteral, tokens[0].ID)
+	require.Equal(t, 100.23, tokens[0].Value.(float64))
+}
+
+func TestAssemblerTokens(t *testing.T) {
+	l := NewBasicLexer()
+	sourceCode := "LDA ($FF),X"
+	tokens, err := l.TokenizeLine(sourceCode, 0)
+	require.NoError(t, err)
+	require.Equal(t, 7, len(tokens))
+}
+
+func TestHexTokens(t *testing.T) {
+	l := NewBasicLexer()
+	sourceCode := "0x1234"
+	tokens, err := l.TokenizeLine(sourceCode, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(tokens))
+	require.Equal(t, tokens[0].Value.(int16), int16(0x1234))
 }
 
 // NewBasicLexer constructs a new Lexer using predefined language settings
@@ -108,6 +136,7 @@ func NewBasicLexer() *lexer.Lexer {
 		lexer.WithCommentMap(comments),
 		lexer.WithTokenCreators(identifierToken),
 		lexer.WithLabelSettings(':', LabelToken),
+		lexer.WithExtraIdentifierRunes("_#%"),
 	)
 	return lexer.NewLexer(ll)
 }
@@ -130,7 +159,7 @@ func validStringVariableName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0) {
+	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "_") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, "$") {
@@ -152,7 +181,7 @@ func validLabelName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if lexer.IsIdentifierChar([]rune(identifier)[0], 0) {
+	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, ":") {
