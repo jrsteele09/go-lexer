@@ -10,25 +10,47 @@ import (
 
 // Constant declarations for different types of tokens
 const (
-	IfStatementToken     lexer.TokenIdentifier = 0x8B
-	LetStatementToken    lexer.TokenIdentifier = 0x88
-	ForStatementToken    lexer.TokenIdentifier = 0x81
-	ToStatementToken     lexer.TokenIdentifier = 0xA4
-	NextStatementToken   lexer.TokenIdentifier = 0x82
-	AddSymbolToken       lexer.TokenIdentifier = 0xAA
-	DivideSymbolToken    lexer.TokenIdentifier = 0xAD
-	MinusSymbolToken     lexer.TokenIdentifier = 0xAB
-	AsterixSymbolToken   lexer.TokenIdentifier = 0xAC
-	EqualsSymbolToken    lexer.TokenIdentifier = 0xB2
-	LeftParenthesis      lexer.TokenIdentifier = 0xF0
-	RightParenthesis     lexer.TokenIdentifier = 0xF1
-	LabelToken           lexer.TokenIdentifier = 0xF2
-	ColonToken           lexer.TokenIdentifier = 0xF3
-	StringVariableToken  lexer.TokenIdentifier = 0xF4
-	IntegerVariableToken lexer.TokenIdentifier = 0xF5
-	NumberVariableToken  lexer.TokenIdentifier = 0xF6
-	DollarToken          lexer.TokenIdentifier = 0xF7
-	CommaToken           lexer.TokenIdentifier = 0xF8
+	IfStatementToken        lexer.TokenIdentifier = 0x8B
+	LetStatementToken       lexer.TokenIdentifier = 0x88
+	ForStatementToken       lexer.TokenIdentifier = 0x81
+	ToStatementToken        lexer.TokenIdentifier = 0xA4
+	NextStatementToken      lexer.TokenIdentifier = 0x82
+	AddSymbolToken          lexer.TokenIdentifier = 0xAA
+	DivideSymbolToken       lexer.TokenIdentifier = 0xAD
+	MinusSymbolToken        lexer.TokenIdentifier = 0xAB
+	MultiplySymbolToken     lexer.TokenIdentifier = 0xAC
+	EqualsSymbolToken       lexer.TokenIdentifier = 0xB2
+	LeftParenthesis         lexer.TokenIdentifier = 0xF0
+	RightParenthesis        lexer.TokenIdentifier = 0xF1
+	LabelToken              lexer.TokenIdentifier = 0xF2
+	ColonToken              lexer.TokenIdentifier = 0xF3
+	StringVariableToken     lexer.TokenIdentifier = 0xF4
+	IntegerVariableToken    lexer.TokenIdentifier = 0xF5
+	NumberVariableToken     lexer.TokenIdentifier = 0xF6
+	DollarToken             lexer.TokenIdentifier = 0xF7
+	CommaToken              lexer.TokenIdentifier = 0xF8
+	NotEqualToken           lexer.TokenIdentifier = 0xF9
+	LeftCurlyBracket        lexer.TokenIdentifier = 0xFA
+	RightCurlyBracket       lexer.TokenIdentifier = 0xFB
+	LeftSquareBracket       lexer.TokenIdentifier = 0xFC
+	RightSquareBracket      lexer.TokenIdentifier = 0xFD
+	SemicolonToken          lexer.TokenIdentifier = 0xFE
+	PeriodToken             lexer.TokenIdentifier = 0xFF
+	DoubleQuoteToken        lexer.TokenIdentifier = 0x100
+	SingleQuoteToken        lexer.TokenIdentifier = 0x101
+	BacktickToken           lexer.TokenIdentifier = 0x102
+	PipeToken               lexer.TokenIdentifier = 0x103
+	AmpersandToken          lexer.TokenIdentifier = 0x104
+	AsteriskToken           lexer.TokenIdentifier = 0x105
+	ExclamationToken        lexer.TokenIdentifier = 0x106
+	QuestionToken           lexer.TokenIdentifier = 0x107
+	AtToken                 lexer.TokenIdentifier = 0x108
+	HashToken               lexer.TokenIdentifier = 0x109
+	LessThanToken           lexer.TokenIdentifier = 0x10A
+	GreaterThanToken        lexer.TokenIdentifier = 0x10B
+	BackslashToken          lexer.TokenIdentifier = 0x10C
+	LessThanOrEqualToken    lexer.TokenIdentifier = 0x10D
+	GreaterThanOrEqualToken lexer.TokenIdentifier = 0x10E
 )
 
 // KeywordTokens defines keyword to token mappings
@@ -40,18 +62,40 @@ var KeywordTokens = map[string]lexer.TokenIdentifier{
 	"next": NextStatementToken,
 }
 
-// SingleCharTokens defines single character to token mappings
-var SingleCharTokens = map[rune]lexer.TokenIdentifier{
-	'(': LeftParenthesis,
-	')': RightParenthesis,
-	'+': AddSymbolToken,
-	'/': DivideSymbolToken,
-	'-': MinusSymbolToken,
-	'*': AsterixSymbolToken,
-	'=': EqualsSymbolToken,
-	':': ColonToken,
-	'$': DollarToken,
-	',': CommaToken,
+// OperatorTokens defines the Operator token mappings that can consist of multiple symbol tokens
+var OperatorTokens = map[string]lexer.TokenIdentifier{
+	"<=": LessThanOrEqualToken,
+	">=": GreaterThanOrEqualToken,
+	"<>": NotEqualToken,
+}
+
+// SymbolTokens defines single delimeter runes to token mappings
+var SymbolTokens = map[rune]lexer.TokenIdentifier{
+	'+':  AddSymbolToken,
+	'/':  DivideSymbolToken,
+	'-':  MinusSymbolToken,
+	'*':  MultiplySymbolToken,
+	'=':  EqualsSymbolToken,
+	'<':  LessThanToken,
+	'>':  GreaterThanToken,
+	'(':  LeftParenthesis,
+	')':  RightParenthesis,
+	'{':  LeftCurlyBracket,
+	'}':  RightCurlyBracket,
+	'[':  LeftSquareBracket,
+	']':  RightSquareBracket,
+	',':  CommaToken,
+	';':  SemicolonToken,
+	':':  ColonToken,
+	'.':  PeriodToken,
+	'|':  PipeToken,
+	'&':  AmpersandToken,
+	'!':  ExclamationToken,
+	'?':  QuestionToken,
+	'@':  AtToken,
+	'#':  HashToken,
+	'$':  DollarToken,
+	'\\': BackslashToken,
 }
 
 // comments defines comment syntax mappings
@@ -129,10 +173,25 @@ func TestHexTokens(t *testing.T) {
 	require.Equal(t, tokens[0].Value.(int16), int16(0x1234))
 }
 
+func TestOperators(t *testing.T) {
+	l := NewBasicLexer()
+	sourceCode := "= <> + - * /"
+	tokens, err := l.TokenizeLine(sourceCode, 0)
+	require.NoError(t, err)
+	require.Equal(t, 6, len(tokens))
+	require.Equal(t, EqualsSymbolToken, tokens[0].ID)
+	require.Equal(t, NotEqualToken, tokens[1].ID)
+	require.Equal(t, AddSymbolToken, tokens[2].ID)
+	require.Equal(t, MinusSymbolToken, tokens[3].ID)
+	require.Equal(t, MultiplySymbolToken, tokens[4].ID)
+	require.Equal(t, DivideSymbolToken, tokens[5].ID)
+}
+
 // NewBasicLexer constructs a new Lexer using predefined language settings
 func NewBasicLexer() *lexer.Lexer {
 	ll := lexer.NewLexerLanguage(
-		lexer.WithSingleRuneMap(SingleCharTokens),
+		lexer.WithOperators(OperatorTokens),
+		lexer.WithSymbols(SymbolTokens),
 		lexer.WithCommentMap(comments),
 		lexer.WithTokenCreators(identifierToken),
 		lexer.WithLabelSettings(':', LabelToken),

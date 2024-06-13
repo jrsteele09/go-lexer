@@ -28,17 +28,15 @@ func (tf *TokenFactory) defaultTokenizer(r rune) (*Token, error) {
 		return nil, nil
 	}
 
-	// Check if we can create a single rune token
-	if tokenID, ok := tf.lexer.language.singleRuneTokens[r]; ok {
-		return NewToken(tokenID, string(r), nil), nil
-	}
+	if tf.IsSymbol(r) {
+		tf.Tokenizer = tf.symbolTokenizer(r) // Replace the defaultTokenizer with the operatorTokenizer
+		return nil, nil
 
-	// Check if we can use a numberTokenizer
-	if IsDigit(r) {
+	} else if IsDigit(r) {
 		tf.Tokenizer = tf.numberTokenizer(r) // Replace the defaultTokenizer with the numberTokenizer
 		return nil, nil
 
-	} else if tf.IsStringQuotes(r) {
+	} else if IsStringQuotes(r) {
 		tf.Tokenizer = tf.stringTokenizer(r) // Replace the defaultTokenizer with the stringTokenizer
 		return nil, nil
 
@@ -141,6 +139,43 @@ func (tf *TokenFactory) identifierTokenizer(initialRune rune) func(rune) (*Token
 	}
 }
 
+// symbolTokenizer processes operators
+func (tf *TokenFactory) symbolTokenizer(initialRune rune) func(r rune) (*Token, error) {
+	parsedString := string(initialRune)
+
+	createSymbolToken := func(r rune) (*Token, error) {
+		tf.lexer.overflowRune = &r
+		tf.Tokenizer = tf.defaultTokenizer
+
+		// Parse a single symbol character
+		if len(parsedString) == 1 {
+			if tokenID, found := tf.lexer.language.symbolTokens[rune(parsedString[0])]; found {
+				return NewToken(tokenID, parsedString, parsedString), nil
+			}
+		} else if len(parsedString) > 1 {
+			if tokenID, found := tf.lexer.language.operatorTokens[parsedString]; found {
+				return NewToken(tokenID, parsedString, parsedString), nil
+			}
+		}
+		return nil, errors.New("unknown symbol: \"" + parsedString + "\"")
+	}
+
+	return func(r rune) (*Token, error) {
+		if tf.IsSymbol(r) {
+			operator := parsedString + string(r)
+			if _, found := tf.lexer.language.operatorTokens[operator]; found { // Check if the operator is a valid token
+				parsedString = operator
+			} else {
+				return createSymbolToken(r)
+			}
+		} else {
+			return createSymbolToken(r)
+		}
+
+		return nil, nil
+	}
+}
+
 // stringToNumber converts a string to a numerical value.
 func (tf *TokenFactory) stringToNumber(strNum string) (interface{}, error) {
 	if strings.Contains(strNum, ".") {
@@ -210,7 +245,12 @@ func IsHexDigit(r rune) bool {
 }
 
 // IsStringQuotes checks if a rune can start or end a string.
-func (tf *TokenFactory) IsStringQuotes(runeChar rune) bool {
+func IsStringQuotes(runeChar rune) bool {
 	const startOfString = "\"'`"
 	return strings.Contains(startOfString, string(runeChar))
+}
+
+func (tf *TokenFactory) IsSymbol(runeChar rune) bool {
+	_, found := tf.lexer.language.symbolTokens[runeChar]
+	return found
 }
