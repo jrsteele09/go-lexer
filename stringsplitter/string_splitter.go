@@ -17,7 +17,7 @@ func (q quoteMap) endQuote(s, currentQuote string) bool {
 	return currentQuote != "" && s[len(s)-1:] == currentQuote
 }
 
-func NewQuoteMap(quotes ...string) quoteMap {
+func newQuoteMap(quotes ...string) quoteMap {
 	q := make(quoteMap)
 	for _, quote := range quotes {
 		q[quote] = struct{}{}
@@ -38,7 +38,7 @@ func NewQuoteMap(quotes ...string) quoteMap {
 // Returns:
 // A function that takes a string and returns a slice of strings based on the delimiter and quotes.
 func StringSplitter(splitToken string, listOfQuotes ...string) func(str string) []string {
-	quoteMap := NewQuoteMap(listOfQuotes...)
+	quoteMap := newQuoteMap(listOfQuotes...)
 
 	return func(str string) []string {
 		if strings.TrimSpace(str) == "" {

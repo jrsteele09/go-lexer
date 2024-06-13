@@ -192,14 +192,14 @@ func (tf *TokenFactory) stringToHex(hexString string) (interface{}, error) {
 
 	bitSize := 64
 
-	len := len(hexString)
-	if len > 0 && len <= 2 {
+	l := len(hexString)
+	if l > 0 && l <= 2 {
 		bitSize = 8
-	} else if len > 2 && len <= 4 {
+	} else if l > 2 && l <= 4 {
 		bitSize = 16
-	} else if len > 4 && len <= 8 {
+	} else if l > 4 && l <= 8 {
 		bitSize = 32
-	} else if len > 8 {
+	} else if l > 8 {
 		bitSize = 64
 	}
 
@@ -239,7 +239,7 @@ func IsDigit(runeChar rune) bool {
 	return unicode.IsDigit(runeChar) || strings.Contains(extraDigits, string(runeChar))
 }
 
-// IsDigit checks if a rune is a hex digit.
+// IsHexDigit checks if a rune is a hex digit.
 func IsHexDigit(r rune) bool {
 	return unicode.IsDigit(r) || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
 }
@@ -250,6 +250,7 @@ func IsStringQuotes(runeChar rune) bool {
 	return strings.Contains(startOfString, string(runeChar))
 }
 
+// IsSymbol checks if a rune is a symbol.
 func (tf *TokenFactory) IsSymbol(runeChar rune) bool {
 	_, found := tf.lexer.language.symbolTokens[runeChar]
 	return found

@@ -20,7 +20,7 @@ const (
 	// NumberLiteral represents a floating-point number literal token type.
 	NumberLiteral
 
-	// Hex Literal represents a hexadecimal number literal token type
+	// HexLiteral represents a hexadecimal number literal token type
 	HexLiteral
 
 	// StringLiteral represents a string literal token type.
