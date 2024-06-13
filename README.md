@@ -19,7 +19,7 @@
 To install the package, run:
 
 ```bash
-go get -u github.com/yourusername/go-lexer
+go get -u github.com/jrsteele09/go-lexer
 ```
 
 ## Usage
