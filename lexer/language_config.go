@@ -2,13 +2,12 @@ package lexer
 
 // LanguageConfig is the struct containing the configurations for the lexer.
 type LanguageConfig struct {
-	operatorTokens       map[string]TokenIdentifier       // Map of operator tokens.
-	symbolTokens         map[rune]TokenIdentifier         // Delimeter tokens
-	comments             map[string]string                // Map of comment delimiters.
-	extraIdentifierRunes string                           // Map of extra chars (runes) that can be part of an identifier name
-	tokenCreators        []func(identifier string) *Token // Custom token creators.
-	labelTerminator      *rune                            // Label terminator rune.
-	labelToken           TokenIdentifier                  // Label token identifier.
+	operatorTokens          map[string]TokenIdentifier       // Map of operator tokens.
+	symbolTokens            map[rune]TokenIdentifier         // Delimeter tokens
+	comments                map[string]string                // Map of comment delimiters.
+	extendedIdentifierRunes string                           // Map of extra chars (runes) that can be part of an identifier name
+	identifierTermination   string                           // Map of chars that will terminate an identifier, for example ":" could be used to identify a label
+	tokenCreators           []func(identifier string) *Token // Custom token creators.
 }
 
 // NewLexerLanguage creates a new LanguageConfig using the provided options.

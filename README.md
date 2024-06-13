@@ -30,6 +30,7 @@ Before tokenizing, you'll need to create a language configuration. You can use v
 
 ```go
 // Constant declarations for different types of tokens
+// Constant declarations for different types of tokens
 const (
 	IfStatementToken        lexer.TokenIdentifier = 0x8B
 	LetStatementToken       lexer.TokenIdentifier = 0x88
@@ -72,6 +73,8 @@ const (
 	BackslashToken          lexer.TokenIdentifier = 0x10C
 	LessThanOrEqualToken    lexer.TokenIdentifier = 0x10D
 	GreaterThanOrEqualToken lexer.TokenIdentifier = 0x10E
+	IncrementToken          lexer.TokenIdentifier = 0x10F
+	EqualityToken           lexer.TokenIdentifier = 0x110
 )
 
 // KeywordTokens defines keyword to token mappings
@@ -88,6 +91,8 @@ var OperatorTokens = map[string]lexer.TokenIdentifier{
 	"<=": LessThanOrEqualToken,
 	">=": GreaterThanOrEqualToken,
 	"<>": NotEqualToken,
+	"++": IncrementToken,
+	"==": EqualityToken,
 }
 
 // SymbolTokens defines single delimeter runes to token mappings
@@ -132,14 +137,18 @@ ll := lexer.NewLexerLanguage(
 	lexer.WithSymbols(SymbolTokens),
 	lexer.WithCommentMap(comments),
 	lexer.WithTokenCreators(identifierToken),
-	lexer.WithLabelSettings(':', LabelToken),
-	lexer.WithExtraIdentifierRunes("_#%"),
+	lexer.WithExtendendedIdentifierRunes("_", ":"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
 )
+return lexer.NewLexer(ll)
 
 
+// identifierToken handles the token creation for identifiers based on custom rules
 func identifierToken(identifier string) *lexer.Token {
 	if tokenID, foundBasicKeyword := KeywordTokens[strings.ToLower(identifier)]; foundBasicKeyword {
 		return lexer.NewToken(tokenID, identifier, nil)
+	}
+	if validLabelName(identifier) {
+		return lexer.NewToken(LabelToken, identifier, 0)
 	}
 	if validIntegerVariableName(identifier) {
 		return lexer.NewToken(IntegerVariableToken, identifier, 0)
@@ -149,11 +158,12 @@ func identifierToken(identifier string) *lexer.Token {
 	return nil
 }
 
+// validStringVariableName checks if an identifier is a valid string variable name
 func validStringVariableName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0) {
+	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "_") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, "$") {
@@ -162,6 +172,7 @@ func validStringVariableName(identifier string) bool {
 	return true
 }
 
+// validIntegerVariableName checks if an identifier is a valid integer variable name
 func validIntegerVariableName(identifier string) bool {
 	if validStringVariableName(identifier) || validLabelName(identifier) {
 		return false
@@ -169,11 +180,12 @@ func validIntegerVariableName(identifier string) bool {
 	return true
 }
 
+// validLabelName checks if an identifier is a valid label name
 func validLabelName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if lexer.IsIdentifierChar([]rune(identifier)[0], 0) {
+	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, ":") {

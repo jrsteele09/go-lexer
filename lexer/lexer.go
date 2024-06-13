@@ -40,7 +40,6 @@ type Lexer struct {
 	overflowRune      *rune
 	currentCommentEnd *string
 	parsingString     bool
-	firstLineToken    bool
 	language          *LanguageConfig
 }
 
@@ -56,7 +55,6 @@ func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]Token, error) {
 	var tokens []Token
 
 	addNewToken := func(column int, token *Token) {
-		l.firstLineToken = false
 		token.SourceLine = lineNo
 		token.SourceColumn = uint(column)
 		tokens = append(tokens, *token)
@@ -65,7 +63,6 @@ func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]Token, error) {
 	tokenFactory := NewTokenFactory(l)
 
 	skipNextRune := false
-	l.firstLineToken = true
 
 	for i, r := range line {
 		if l.commentOnEndOfLine() {

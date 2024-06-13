@@ -51,6 +51,8 @@ const (
 	BackslashToken          lexer.TokenIdentifier = 0x10C
 	LessThanOrEqualToken    lexer.TokenIdentifier = 0x10D
 	GreaterThanOrEqualToken lexer.TokenIdentifier = 0x10E
+	IncrementToken          lexer.TokenIdentifier = 0x10F
+	EqualityToken           lexer.TokenIdentifier = 0x110
 )
 
 // KeywordTokens defines keyword to token mappings
@@ -67,6 +69,8 @@ var OperatorTokens = map[string]lexer.TokenIdentifier{
 	"<=": LessThanOrEqualToken,
 	">=": GreaterThanOrEqualToken,
 	"<>": NotEqualToken,
+	"++": IncrementToken,
+	"==": EqualityToken,
 }
 
 // SymbolTokens defines single delimeter runes to token mappings
@@ -175,16 +179,31 @@ func TestHexTokens(t *testing.T) {
 
 func TestOperators(t *testing.T) {
 	l := NewBasicLexer()
-	sourceCode := "= <> + - * /"
+	sourceCode := "= <> + - * / +++"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 6, len(tokens))
+	require.Equal(t, 8, len(tokens))
 	require.Equal(t, EqualsSymbolToken, tokens[0].ID)
 	require.Equal(t, NotEqualToken, tokens[1].ID)
 	require.Equal(t, AddSymbolToken, tokens[2].ID)
 	require.Equal(t, MinusSymbolToken, tokens[3].ID)
 	require.Equal(t, MultiplySymbolToken, tokens[4].ID)
 	require.Equal(t, DivideSymbolToken, tokens[5].ID)
+	require.Equal(t, IncrementToken, tokens[6].ID)
+	require.Equal(t, AddSymbolToken, tokens[7].ID)
+}
+
+func TestLabelParsing(t *testing.T) {
+	l := NewBasicLexer()
+	sourceCode := "test: if a == 10"
+	tokens, err := l.TokenizeLine(sourceCode, 0)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(tokens))
+	require.Equal(t, LabelToken, tokens[0].ID)
+	require.Equal(t, IfStatementToken, tokens[1].ID)
+	require.Equal(t, IntegerVariableToken, tokens[2].ID)
+	require.Equal(t, EqualityToken, tokens[3].ID)
+	require.Equal(t, lexer.IntegerLiteral, tokens[4].ID)
 }
 
 // NewBasicLexer constructs a new Lexer using predefined language settings
@@ -194,8 +213,7 @@ func NewBasicLexer() *lexer.Lexer {
 		lexer.WithSymbols(SymbolTokens),
 		lexer.WithCommentMap(comments),
 		lexer.WithTokenCreators(identifierToken),
-		lexer.WithLabelSettings(':', LabelToken),
-		lexer.WithExtraIdentifierRunes("_#%"),
+		lexer.WithExtendendedIdentifierRunes("_", ":"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
 	)
 	return lexer.NewLexer(ll)
 }
@@ -204,6 +222,9 @@ func NewBasicLexer() *lexer.Lexer {
 func identifierToken(identifier string) *lexer.Token {
 	if tokenID, foundBasicKeyword := KeywordTokens[strings.ToLower(identifier)]; foundBasicKeyword {
 		return lexer.NewToken(tokenID, identifier, nil)
+	}
+	if validLabelName(identifier) {
+		return lexer.NewToken(LabelToken, identifier, 0)
 	}
 	if validIntegerVariableName(identifier) {
 		return lexer.NewToken(IntegerVariableToken, identifier, 0)

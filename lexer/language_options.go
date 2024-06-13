@@ -32,17 +32,10 @@ func WithTokenCreators(tc ...func(identifier string) *Token) LanguageOptions {
 	}
 }
 
-// WithLabelSettings is a LanguageOptions function for setting label terminators and label tokens.
-func WithLabelSettings(terminator rune, labelTokenID TokenIdentifier) LanguageOptions {
+// WithExtendendedIdentifierRunes is a string of individual runes that can also be used to name identifiers
+func WithExtendendedIdentifierRunes(extraIdentifierRunes string, identifierTermination string) LanguageOptions {
 	return func(ll *LanguageConfig) {
-		ll.labelTerminator = &terminator
-		ll.labelToken = labelTokenID
-	}
-}
-
-// WithExtraIdentifierRunes is a string of individual runes that can also be used to name identifiers
-func WithExtraIdentifierRunes(extraIdentifierRunes string) LanguageOptions {
-	return func(ll *LanguageConfig) {
-		ll.extraIdentifierRunes = extraIdentifierRunes
+		ll.extendedIdentifierRunes = extraIdentifierRunes
+		ll.identifierTermination = identifierTermination
 	}
 }

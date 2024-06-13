@@ -40,7 +40,7 @@ func (tf *TokenFactory) defaultTokenizer(r rune) (*Token, error) {
 		tf.Tokenizer = tf.stringTokenizer(r) // Replace the defaultTokenizer with the stringTokenizer
 		return nil, nil
 
-	} else if IsIdentifierChar(r, 0, tf.lexer.language.extraIdentifierRunes) {
+	} else if IsIdentifierChar(r, 0, tf.lexer.language.extendedIdentifierRunes) {
 		tf.Tokenizer = tf.identifierTokenizer(r) // Replace the defaultTokenizer with the identifierTokenizer
 		return nil, nil
 	}
@@ -126,10 +126,11 @@ func (tf *TokenFactory) identifierTokenizer(initialRune rune) func(rune) (*Token
 	parsedString := string(initialRune)
 
 	return func(runeChar rune) (*Token, error) {
-		if tf.lexer.language.labelTerminator != nil && tf.lexer.firstLineToken && runeChar == *tf.lexer.language.labelTerminator {
-			return NewToken(tf.lexer.language.labelToken, parsedString+string(runeChar), ""), nil
+		if IsTermination(runeChar, len(parsedString), tf.lexer.language.identifierTermination) {
+			tf.Tokenizer = tf.defaultTokenizer
+			return tf.lexer.language.tokenFromIdentifier(parsedString + string(runeChar)), nil
 		}
-		if !IsIdentifierChar(runeChar, len(parsedString), tf.lexer.language.extraIdentifierRunes) {
+		if !IsIdentifierChar(runeChar, len(parsedString), tf.lexer.language.extendedIdentifierRunes) {
 			tf.lexer.overflowRune = &runeChar
 			tf.Tokenizer = tf.defaultTokenizer
 			return tf.lexer.language.tokenFromIdentifier(parsedString), nil
@@ -231,6 +232,15 @@ func IsIdentifierChar(runeChar rune, pos int, extraRunes string) bool {
 	}
 
 	return strings.Contains(extraRunes, string(runeChar))
+}
+
+// IsTermination checks if a rune is in the list of terminator characters. For example ":" can be used to specify that the identifier is actually a label.
+func IsTermination(runeChar rune, pos int, terminators string) bool {
+	if pos == 0 {
+		return false
+	}
+
+	return strings.Contains(terminators, string(runeChar))
 }
 
 // IsDigit checks if a rune is a digit.
