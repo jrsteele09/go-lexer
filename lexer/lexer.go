@@ -1,6 +1,9 @@
 package lexer
 
 import (
+	"bufio"
+	"io"
+
 	"github.com/pkg/errors"
 )
 
@@ -48,6 +51,31 @@ func NewLexer(language *LanguageConfig) *Lexer {
 	return &Lexer{
 		language: language,
 	}
+}
+
+// Tokenize reads from an io.Reader line by line, tokenizes each line using TokenizeLine,
+// and returns all the generated tokens.
+func (l *Lexer) Tokenize(r io.Reader) ([]Token, error) {
+	var allTokens []Token
+	scanner := bufio.NewScanner(r)
+	lineNo := uint(1)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		tokens, err := l.TokenizeLine(line, lineNo)
+		if err != nil {
+			return nil, err
+		}
+		allTokens = append(allTokens, tokens...)
+		lineNo++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	allTokens = append(allTokens, *NewToken(EOFType, "", nil))
+	return allTokens, nil
 }
 
 // TokenizeLine tokenizes a single line of input and returns an array of tokens.
@@ -99,13 +127,16 @@ func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]Token, error) {
 		}
 	}
 
-	// Process the token at the end of the line
-	if token, err := tokenFactory.Tokenizer(newLine); err != nil {
+	// Need to complete the tokenization process for the last rune, its likely that a tokenizer was in progress when the end of the line was reached.
+	if token, err := tokenFactory.Tokenizer(newLine); err != nil { // Call tokenization with the NewLine rune to force the tokenizer to complete the tokenization process.
 		return nil, errors.Wrap(err, "Lexer.TokenizeLine.tokenFactory.Tokenizer")
 	} else if token != nil {
 		addNewToken(len(line), token)
 	}
 
+	if len(tokens) != 0 {
+		addNewToken(len(line), NewToken(EndOfLineType, string(newLine), nil))
+	}
 	return tokens, nil
 }
 

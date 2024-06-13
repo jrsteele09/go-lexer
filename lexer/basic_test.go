@@ -114,11 +114,12 @@ func TestBasicExpression(t *testing.T) {
 	l := NewBasicLexer()
 	tokens, err := l.TokenizeLine("let a = 10", 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(tokens))
+	require.Equal(t, 5, len(tokens))
 	require.Equal(t, LetStatementToken, tokens[0].ID)
 	require.Equal(t, IntegerVariableToken, tokens[1].ID)
 	require.Equal(t, EqualsSymbolToken, tokens[2].ID)
 	require.Equal(t, lexer.IntegerLiteral, tokens[3].ID)
+	require.Equal(t, lexer.EndOfLineType, tokens[4].ID)
 }
 
 // TestIdentifierExpressionWithComment tests tokenization when a comment follows an identifier
@@ -127,26 +128,23 @@ func TestIdentifierExpressionWithComment(t *testing.T) {
 	l := NewBasicLexer()
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(tokens))
+	require.Equal(t, 2, len(tokens))
 	require.Equal(t, IntegerVariableToken, tokens[0].ID)
+	require.Equal(t, lexer.EndOfLineType, tokens[1].ID)
+
 }
 
 // TestIdentifierExpressionWithComment
 func TestCrossLineComments(t *testing.T) {
-	sourceCode := []string{
-		"abc	/* multiline comments",
-		"def */",
-		"ghi",
-	}
-	l := NewBasicLexer()
-	allTokens := make([]lexer.Token, 0)
-	for _, s := range sourceCode {
-		tokens, err := l.TokenizeLine(s, 0)
-		require.NoError(t, err)
-		allTokens = append(allTokens, tokens...)
+	sourceCode := `abc	/* multiline comments
+	def */
+	ghi`
 
-	}
-	require.Equal(t, 2, len(allTokens))
+	l := NewBasicLexer()
+	r := strings.NewReader(sourceCode)
+	allTokens, err := l.Tokenize(r)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(allTokens)) // Includes two endOfLine tokens + endOfFile token
 }
 
 // TestFloatLexer tests tokenization of floating point numbers
@@ -155,9 +153,10 @@ func TestFloatLexer(t *testing.T) {
 	sourceCode := "100.23"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(tokens))
+	require.Equal(t, 2, len(tokens))
 	require.Equal(t, lexer.NumberLiteral, tokens[0].ID)
 	require.Equal(t, 100.23, tokens[0].Value.(float64))
+	require.Equal(t, lexer.EndOfLineType, tokens[1].ID)
 }
 
 func TestAssemblerTokens(t *testing.T) {
@@ -165,7 +164,7 @@ func TestAssemblerTokens(t *testing.T) {
 	sourceCode := "LDA ($FF),X"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(tokens))
+	require.Equal(t, 8, len(tokens))
 }
 
 func TestHexTokens(t *testing.T) {
@@ -173,8 +172,9 @@ func TestHexTokens(t *testing.T) {
 	sourceCode := "0x1234"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(tokens))
+	require.Equal(t, 2, len(tokens))
 	require.Equal(t, tokens[0].Value.(int16), int16(0x1234))
+	require.Equal(t, lexer.EndOfLineType, tokens[1].ID)
 }
 
 func TestOperators(t *testing.T) {
@@ -182,7 +182,7 @@ func TestOperators(t *testing.T) {
 	sourceCode := "= <> + - * / +++"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 8, len(tokens))
+	require.Equal(t, 9, len(tokens))
 	require.Equal(t, EqualsSymbolToken, tokens[0].ID)
 	require.Equal(t, NotEqualToken, tokens[1].ID)
 	require.Equal(t, AddSymbolToken, tokens[2].ID)
@@ -191,6 +191,7 @@ func TestOperators(t *testing.T) {
 	require.Equal(t, DivideSymbolToken, tokens[5].ID)
 	require.Equal(t, IncrementToken, tokens[6].ID)
 	require.Equal(t, AddSymbolToken, tokens[7].ID)
+	require.Equal(t, lexer.EndOfLineType, tokens[8].ID)
 }
 
 func TestLabelParsing(t *testing.T) {
@@ -198,12 +199,13 @@ func TestLabelParsing(t *testing.T) {
 	sourceCode := "test: if a == 10"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(tokens))
+	require.Equal(t, 6, len(tokens))
 	require.Equal(t, LabelToken, tokens[0].ID)
 	require.Equal(t, IfStatementToken, tokens[1].ID)
 	require.Equal(t, IntegerVariableToken, tokens[2].ID)
 	require.Equal(t, EqualityToken, tokens[3].ID)
 	require.Equal(t, lexer.IntegerLiteral, tokens[4].ID)
+	require.Equal(t, lexer.EndOfLineType, tokens[5].ID)
 }
 
 // NewBasicLexer constructs a new Lexer using predefined language settings
