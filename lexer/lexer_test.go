@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jrsteele09/go-lexer/lexer"
+	"github.com/jrsteele09/go-lexer/lexer/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -109,6 +110,11 @@ var comments = map[string]string{
 	"rem": "\n",
 }
 
+// Custom tokenizers
+var customTokenizers = map[rune]lexer.TokenizerHandler{
+	'$': lexer.HexTokenizer,
+}
+
 // TestBasicExpression tests a basic tokenization of a line
 func TestBasicExpression(t *testing.T) {
 	l := NewBasicLexer()
@@ -164,7 +170,7 @@ func TestAssemblerTokens(t *testing.T) {
 	sourceCode := "LDA ($FF),X"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
-	require.Equal(t, 8, len(tokens))
+	require.Equal(t, 7, len(tokens))
 }
 
 func TestHexTokens(t *testing.T) {
@@ -173,13 +179,13 @@ func TestHexTokens(t *testing.T) {
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tokens))
-	require.Equal(t, tokens[0].Value.(int16), int16(0x1234))
+	require.Equal(t, tokens[0].Value.(uint16), uint16(0x1234))
 	require.Equal(t, lexer.EndOfLineType, tokens[1].ID)
 }
 
 func TestOperators(t *testing.T) {
 	l := NewBasicLexer()
-	sourceCode := "= <> + - * / +++"
+	sourceCode := "=<>+-*/+++"
 	tokens, err := l.TokenizeLine(sourceCode, 0)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(tokens))
@@ -211,29 +217,36 @@ func TestLabelParsing(t *testing.T) {
 // NewBasicLexer constructs a new Lexer using predefined language settings
 func NewBasicLexer() *lexer.Lexer {
 	ll := lexer.NewLexerLanguage(
+		lexer.WithKeywords(KeywordTokens),
+		lexer.WithCustomTokenizers(customTokenizers),
 		lexer.WithOperators(OperatorTokens),
 		lexer.WithSymbols(SymbolTokens),
 		lexer.WithCommentMap(comments),
-		lexer.WithTokenCreators(identifierToken),
-		lexer.WithExtendendedIdentifierRunes("_", ":"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
+		lexer.WithSpecializationCreators(labelTokenCreator, integerVariableTokenCreator, stringVariableTokenCreator),
+		lexer.WithExtendendedIdentifierRunes("_", ":$"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
 	)
 	return lexer.NewLexer(ll)
 }
 
-// identifierToken handles the token creation for identifiers based on custom rules
-func identifierToken(identifier string) *lexer.Token {
-	if tokenID, foundBasicKeyword := KeywordTokens[strings.ToLower(identifier)]; foundBasicKeyword {
-		return lexer.NewToken(tokenID, identifier, nil)
+func integerVariableTokenCreator(identifier string) *lexer.Token {
+	if validStringVariableName(identifier) || validLabelName(identifier) {
+		return nil
 	}
-	if validLabelName(identifier) {
-		return lexer.NewToken(LabelToken, identifier, 0)
+	return lexer.NewToken(IntegerVariableToken, identifier, nil)
+}
+
+func stringVariableTokenCreator(identifier string) *lexer.Token {
+	if !validStringVariableName(identifier) || validLabelName(identifier) {
+		return nil
 	}
-	if validIntegerVariableName(identifier) {
-		return lexer.NewToken(IntegerVariableToken, identifier, 0)
-	} else if validStringVariableName(identifier) {
-		return lexer.NewToken(StringVariableToken, identifier, "")
+	return lexer.NewToken(StringVariableToken, identifier, nil)
+}
+
+func labelTokenCreator(identifier string) *lexer.Token {
+	if !validLabelName(identifier) {
+		return nil
 	}
-	return nil
+	return lexer.NewToken(LabelToken, identifier, 0)
 }
 
 // validStringVariableName checks if an identifier is a valid string variable name
@@ -241,7 +254,7 @@ func validStringVariableName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "_") {
+	if !utils.IsIdentifierChar([]rune(identifier)[0], 0, "_", "") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, "$") {
@@ -250,20 +263,9 @@ func validStringVariableName(identifier string) bool {
 	return true
 }
 
-// validIntegerVariableName checks if an identifier is a valid integer variable name
-func validIntegerVariableName(identifier string) bool {
-	if validStringVariableName(identifier) || validLabelName(identifier) {
-		return false
-	}
-	return true
-}
-
 // validLabelName checks if an identifier is a valid label name
 func validLabelName(identifier string) bool {
 	if len(identifier) == 0 {
-		return false
-	}
-	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, ":") {

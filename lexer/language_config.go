@@ -1,8 +1,12 @@
 package lexer
 
+type TokenizerHandler func(tf *TokenCreator, initialRune rune) func(r rune) ([]*Token, error)
+
 // LanguageConfig is the struct containing the configurations for the lexer.
 type LanguageConfig struct {
+	keywordTokens           map[string]TokenIdentifier
 	operatorTokens          map[string]TokenIdentifier       // Map of operator tokens.
+	customTokenizers        map[rune]TokenizerHandler        // customer tokenizers allow language custom tokenizers to be added to the lexer
 	symbolTokens            map[rune]TokenIdentifier         // Delimeter tokens
 	comments                map[string]string                // Map of comment delimiters.
 	extendedIdentifierRunes string                           // Map of extra chars (runes) that can be part of an identifier name
@@ -22,10 +26,24 @@ func NewLexerLanguage(opts ...LanguageOptions) *LanguageConfig {
 // tokenFromIdentifier searches for a token matching the given identifier
 // using custom token creators and returns the token if found.
 func (ll *LanguageConfig) tokenFromIdentifier(identifier string) *Token {
+	if tokenID, ok := ll.keywordTokens[identifier]; ok {
+		return NewToken(tokenID, identifier, nil)
+	}
+
 	for _, c := range ll.tokenCreators {
 		if t := c(identifier); t != nil {
 			return t
 		}
 	}
 	return nil
+}
+
+func (ll *LanguageConfig) IsCustomTokenizer(r rune) bool {
+	_, found := ll.customTokenizers[r]
+	return found
+}
+
+func (ll *LanguageConfig) Tokenizer(r rune) TokenizerHandler {
+	tokenizer := ll.customTokenizers[r]
+	return tokenizer
 }

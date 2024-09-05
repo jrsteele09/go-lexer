@@ -10,6 +10,13 @@ func WithOperators(ot map[string]TokenIdentifier) LanguageOptions {
 	}
 }
 
+// WithKeywords is a LanguageOptions function for setting the map of keyword tokens
+func WithKeywords(kw map[string]TokenIdentifier) LanguageOptions {
+	return func(ll *LanguageConfig) {
+		ll.keywordTokens = kw
+	}
+}
+
 // WithSymbols is a LanguageOptions function for setting the map of delimeter tokens
 func WithSymbols(dt map[rune]TokenIdentifier) LanguageOptions {
 	return func(ll *LanguageConfig) {
@@ -24,8 +31,8 @@ func WithCommentMap(cm map[string]string) LanguageOptions {
 	}
 }
 
-// WithTokenCreators is a LanguageOptions function for setting custom token creators.
-func WithTokenCreators(tc ...func(identifier string) *Token) LanguageOptions {
+// WithSpecializationCreators is a LanguageOptions function for setting custom token creators.
+func WithSpecializationCreators(tc ...func(identifier string) *Token) LanguageOptions {
 	return func(ll *LanguageConfig) {
 		ll.tokenCreators = make([]func(identifier string) *Token, 0)
 		ll.tokenCreators = append(ll.tokenCreators, tc...)
@@ -38,4 +45,11 @@ func WithExtendendedIdentifierRunes(extraIdentifierRunes string, identifierTermi
 		ll.extendedIdentifierRunes = extraIdentifierRunes
 		ll.identifierTermination = identifierTermination
 	}
+}
+
+func WithCustomTokenizers(customTokenizers map[rune]TokenizerHandler) LanguageOptions {
+	return func(ll *LanguageConfig) {
+		ll.customTokenizers = customTokenizers
+	}
+
 }

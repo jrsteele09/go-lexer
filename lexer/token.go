@@ -1,4 +1,3 @@
-// Package lexer provides utilities for lexical analysis.
 package lexer
 
 import "fmt"
@@ -6,6 +5,33 @@ import "fmt"
 // TokenIdentifier is a type used to distinguish between different kinds of tokens.
 // It's an integer code that gives the token its "identity".
 type TokenIdentifier int16
+
+const (
+	// NullType represents a null or undefined token type.
+	NullType TokenIdentifier = iota
+
+	// EOFType represents the end-of-file token type.
+	EOFType
+
+	// EndOfLineType represents the end-of-line token type.
+	EndOfLineType
+
+	// IntegerLiteral represents an integer literal token type.
+	IntegerLiteral
+
+	// NumberLiteral represents a floating-point number literal token type.
+	NumberLiteral
+
+	// HexLiteral represents a hexadecimal number literal token type
+	HexLiteral
+
+	// StringLiteral represents a string literal token type.
+	StringLiteral
+
+	// LastStdLiteral serves as a marker for the last standard literal token type.
+	// Any custom token types should be declared after this constant.
+	LastStdLiteral
+)
 
 // Token represents a single lexical token in the language being parsed.
 // Each token has an identifier, a literal string representation, and an optional value.
