@@ -47,7 +47,7 @@ func WithExtendendedIdentifierRunes(extraIdentifierRunes string, identifierTermi
 	}
 }
 
-func WithCustomTokenizers(customTokenizers map[rune]TokenizerHandler) LanguageOptions {
+func WithCustomTokenizers(customTokenizers map[string]TokenizerFunc) LanguageOptions {
 	return func(ll *LanguageConfig) {
 		ll.customTokenizers = customTokenizers
 	}

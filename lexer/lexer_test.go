@@ -54,6 +54,7 @@ const (
 	GreaterThanOrEqualToken lexer.TokenIdentifier = 0x10E
 	IncrementToken          lexer.TokenIdentifier = 0x10F
 	EqualityToken           lexer.TokenIdentifier = 0x110
+	PercentageToken         lexer.TokenIdentifier = 0x120
 )
 
 // KeywordTokens defines keyword to token mappings
@@ -101,6 +102,7 @@ var SymbolTokens = map[rune]lexer.TokenIdentifier{
 	'#':  HashToken,
 	'$':  DollarToken,
 	'\\': BackslashToken,
+	'%':  PercentageToken,
 }
 
 // comments defines comment syntax mappings
@@ -110,9 +112,13 @@ var comments = map[string]string{
 	"rem": "\n",
 }
 
-// Custom tokenizers
-var customTokenizers = map[rune]lexer.TokenizerHandler{
-	'$': lexer.HexTokenizer,
+// Custom tokenizers - On detection of the starting character, jump to a specific tokenizer.
+// Custom tokenizers will override symbol tokens.
+var customTokenizers = map[string]lexer.TokenizerFunc{
+	"$":  lexer.HexTokenizer,
+	"0x": lexer.HexTokenizer,
+	"%0": lexer.BinaryTokenizer,
+	"%1": lexer.BinaryTokenizer,
 }
 
 // TestBasicExpression tests a basic tokenization of a line
@@ -126,6 +132,37 @@ func TestBasicExpression(t *testing.T) {
 	require.Equal(t, EqualsSymbolToken, tokens[2].ID)
 	require.Equal(t, lexer.IntegerLiteral, tokens[3].ID)
 	require.Equal(t, lexer.EndOfLineType, tokens[4].ID)
+}
+
+// TestStrings tests a basic tokenization of a line
+func TestStrings(t *testing.T) {
+	l := NewBasicLexer()
+	tokens, err := l.TokenizeLine("\" hello \",`hello`,'hello',\"'hello'\"", 0)
+	require.NoError(t, err)
+	require.Equal(t, 8, len(tokens))
+	require.Equal(t, lexer.StringLiteral, tokens[0].ID)
+	require.Equal(t, CommaToken, tokens[1].ID)
+	require.Equal(t, lexer.StringLiteral, tokens[2].ID)
+	require.Equal(t, CommaToken, tokens[3].ID)
+	require.Equal(t, lexer.StringLiteral, tokens[4].ID)
+	require.Equal(t, "hello", tokens[4].Value)
+	require.Equal(t, CommaToken, tokens[5].ID)
+	require.Equal(t, lexer.StringLiteral, tokens[6].ID)
+	require.Equal(t, "'hello'", tokens[6].Value)
+	require.Equal(t, lexer.EndOfLineType, tokens[7].ID)
+}
+
+func TestBinary(t *testing.T) {
+	l := NewBasicLexer()
+	tokens, err := l.TokenizeLine("%01,%10", 0)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(tokens))
+	require.Equal(t, lexer.IntegerLiteral, tokens[0].ID)
+	require.Equal(t, uint8(1), tokens[0].Value)
+	require.Equal(t, CommaToken, tokens[1].ID)
+	require.Equal(t, lexer.IntegerLiteral, tokens[2].ID)
+	require.Equal(t, uint8(2), tokens[2].Value)
+	require.Equal(t, lexer.EndOfLineType, tokens[3].ID)
 }
 
 // TestIdentifierExpressionWithComment tests tokenization when a comment follows an identifier

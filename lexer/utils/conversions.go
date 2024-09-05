@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // StringToNumber converts a string to a numerical value.
@@ -13,6 +13,25 @@ func StringToNumber(strNum string) (interface{}, error) {
 		return strconv.ParseFloat(strNum, 64)
 	}
 	return strconv.ParseInt(strNum, 10, 64)
+}
+
+func BinaryStringToNumber(binaryNumber string) (interface{}, error) {
+	// Convert the binary string to an unsigned integer
+	result, err := strconv.ParseUint(binaryNumber, 2, 64)
+	if err != nil {
+		return nil, fmt.Errorf("BinaryStringToNumber: failed to parse binary string [%w]", err)
+	}
+
+	// Check if the result can fit in the smallest uint type
+	if result <= math.MaxUint8 {
+		return uint8(result), nil
+	} else if result <= math.MaxUint16 {
+		return uint16(result), nil
+	} else if result <= math.MaxUint32 {
+		return uint32(result), nil
+	} else {
+		return uint64(result), nil
+	}
 }
 
 func HexToNumber(hexString string) (interface{}, error) {
@@ -37,7 +56,7 @@ func HexToNumber(hexString string) (interface{}, error) {
 	// Parse the hexadecimal string to int64
 	value, err := strconv.ParseInt(hexString, 16, 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "HexToNumber: failed to parse hex string %s", hexString)
+		return nil, fmt.Errorf("HexToNumber: failed to parse hex string [%w]", err)
 	}
 
 	switch bitSize {

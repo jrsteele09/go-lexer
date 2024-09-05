@@ -11,7 +11,7 @@ import (
 // TokenCreator manages the creation of tokens for a given lexer.
 type TokenCreator struct {
 	overflowRune     *rune
-	currentTokenizer func(r rune) ([]*Token, error)
+	currentTokenizer TokenizerHandler
 	commentParser    *comments.CommentParser
 	languageConfig   *LanguageConfig
 	parsingString    bool
@@ -20,58 +20,57 @@ type TokenCreator struct {
 // NewTokenCreator initializes and returns a new TokenFactory for a given lexer.
 func NewTokenCreator(commentParser *comments.CommentParser, lc *LanguageConfig) *TokenCreator {
 	tf := &TokenCreator{commentParser: commentParser, languageConfig: lc}
-	tf.SetTokenizer(tf.tokenCreatorIdentifier())
+	tf.SetTokenizer(tf.tokenizerSelector())
 	return tf
 }
 
 // Tokenize calls the current tokenizer, defaulting to the tokenizer identifier function.
 // Once a token has been created, it restores to identifying the type of the next token.
 func (tf *TokenCreator) Tokenize(r rune) ([]*Token, error) {
-	tokens, err := tf.currentTokenizer(r)
+	tokens, completed, err := tf.currentTokenizer(r)
 	if err != nil {
 		return nil, err
 	}
-	if tokens == nil {
-		return nil, nil
+	if completed {
+		tf.SetTokenizer(tf.tokenizerSelector())
 	}
-	tf.SetTokenizer(tf.tokenCreatorIdentifier())
 	return tokens, err
 }
 
-// tokenCreatorIdentifier is the default tokenization function.
+// tokenizerSelector is the default tokenization function.
 // It identifies tokens based on individual runes.
-func (tf *TokenCreator) tokenCreatorIdentifier() func(r rune) ([]*Token, error) {
-	return func(r rune) ([]*Token, error) {
+func (tf *TokenCreator) tokenizerSelector() TokenizerHandler {
+	return func(r rune) ([]*Token, completed, error) {
 		// Ignore the rune if in a comment or a space
 		if tf.commentParser.InComment() || unicode.IsSpace(r) {
-			return nil, nil
+			return nil, false, nil
 		}
 
-		if tf.languageConfig.IsCustomTokenizer(r) {
-			tf.SetTokenizer(tf.languageConfig.Tokenizer(r)(tf, r))
-			return nil, nil
+		if tf.languageConfig.IsCustomTokenizer(string(r)) {
+			tf.SetTokenizer(tf.languageConfig.Tokenizer(string(r))(tf, string(r)))
+			return nil, false, nil
 		} else if _, found := tf.languageConfig.symbolTokens[r]; found {
-			tf.SetTokenizer(SymbolTokenizer(tf, r)) // Replace the defaultTokenizer with the operatorTokenizer
-			return nil, nil
+			tf.SetTokenizer(SymbolTokenizer(tf, string(r))) // Replace the defaultTokenizer with the operatorTokenizer
+			return nil, false, nil
 		} else if utils.IsDigit(r) {
-			tf.SetTokenizer(NumberTokenizer(tf, r)) // Replace the defaultTokenizer with the numberTokenizer
-			return nil, nil
+			tf.SetTokenizer(NumberTokenizer(tf, string(r))) // Replace the defaultTokenizer with the numberTokenizer
+			return nil, false, nil
 
 		} else if utils.IsStringQuotes(r) {
-			tf.SetTokenizer(StringTokenizer(tf, r)) // Replace the defaultTokenizer with the stringTokenizer
-			return nil, nil
+			tf.SetTokenizer(StringTokenizer(tf, string(r))) // Replace the defaultTokenizer with the stringTokenizer
+			return nil, false, nil
 
 		} else if utils.IsIdentifierChar(r, 0, tf.languageConfig.extendedIdentifierRunes, tf.languageConfig.identifierTermination) {
-			tf.SetTokenizer(IdentifierTokenizer(tf, r)) // Replace the defaultTokenizer with the identifierTokenizer
-			return nil, nil
+			tf.SetTokenizer(IdentifierTokenizer(tf, string(r))) // Replace the defaultTokenizer with the identifierTokenizer
+			return nil, false, nil
 		}
 
-		return nil, errors.New("unknown character: \"" + string(r) + "\"")
+		return nil, false, errors.New("unknown character: \"" + string(r) + "\"")
 	}
 }
 
-func (tf *TokenCreator) SetTokenizer(tokinzer func(r rune) ([]*Token, error)) {
-	tf.currentTokenizer = tokinzer
+func (tf *TokenCreator) SetTokenizer(tokenizer TokenizerHandler) {
+	tf.currentTokenizer = tokenizer
 }
 
 func (tf *TokenCreator) SetOverFlow(r rune) {
