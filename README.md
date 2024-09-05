@@ -30,7 +30,6 @@ Before tokenizing, you'll need to create a language configuration. You can use v
 
 ```go
 // Constant declarations for different types of tokens
-// Constant declarations for different types of tokens
 const (
 	IfStatementToken        lexer.TokenIdentifier = 0x8B
 	LetStatementToken       lexer.TokenIdentifier = 0x88
@@ -131,31 +130,44 @@ var comments = map[string]string{
 	"rem": "\n",
 }
 
-// Create new language configuration
-ll := lexer.NewLexerLanguage(
-	lexer.WithOperators(OperatorTokens),
-	lexer.WithSymbols(SymbolTokens),
-	lexer.WithCommentMap(comments),
-	lexer.WithTokenCreators(identifierToken),
-	lexer.WithExtendendedIdentifierRunes("_", ":"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
-)
-return lexer.NewLexer(ll)
+// Custom tokenizers
+var customTokenizers = map[rune]lexer.TokenizerHandler{
+	'$': lexer.HexTokenizer,
+}
 
+// NewBasicLexer constructs a new Lexer using predefined language settings
+func NewBasicLexer() *lexer.Lexer {
+	ll := lexer.NewLexerLanguage(
+		lexer.WithKeywords(KeywordTokens),
+		lexer.WithCustomTokenizers(customTokenizers),
+		lexer.WithOperators(OperatorTokens),
+		lexer.WithSymbols(SymbolTokens),
+		lexer.WithCommentMap(comments),
+		lexer.WithSpecializationCreators(labelTokenCreator, integerVariableTokenCreator, stringVariableTokenCreator),
+		lexer.WithExtendendedIdentifierRunes("_", ":$"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
+	)
+	return lexer.NewLexer(ll)
+}
 
-// identifierToken handles the token creation for identifiers based on custom rules
-func identifierToken(identifier string) *lexer.Token {
-	if tokenID, foundBasicKeyword := KeywordTokens[strings.ToLower(identifier)]; foundBasicKeyword {
-		return lexer.NewToken(tokenID, identifier, nil)
+func integerVariableTokenCreator(identifier string) *lexer.Token {
+	if validStringVariableName(identifier) || validLabelName(identifier) {
+		return nil
 	}
-	if validLabelName(identifier) {
-		return lexer.NewToken(LabelToken, identifier, 0)
+	return lexer.NewToken(IntegerVariableToken, identifier, nil)
+}
+
+func stringVariableTokenCreator(identifier string) *lexer.Token {
+	if !validStringVariableName(identifier) || validLabelName(identifier) {
+		return nil
 	}
-	if validIntegerVariableName(identifier) {
-		return lexer.NewToken(IntegerVariableToken, identifier, 0)
-	} else if validStringVariableName(identifier) {
-		return lexer.NewToken(StringVariableToken, identifier, "")
+	return lexer.NewToken(StringVariableToken, identifier, nil)
+}
+
+func labelTokenCreator(identifier string) *lexer.Token {
+	if !validLabelName(identifier) {
+		return nil
 	}
-	return nil
+	return lexer.NewToken(LabelToken, identifier, 0)
 }
 
 // validStringVariableName checks if an identifier is a valid string variable name
@@ -163,18 +175,10 @@ func validStringVariableName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "_") {
+	if !utils.IsIdentifierChar([]rune(identifier)[0], 0, "_", "") {
 		return false
 	}
 	if !strings.HasSuffix(identifier, "$") {
-		return false
-	}
-	return true
-}
-
-// validIntegerVariableName checks if an identifier is a valid integer variable name
-func validIntegerVariableName(identifier string) bool {
-	if validStringVariableName(identifier) || validLabelName(identifier) {
 		return false
 	}
 	return true
@@ -185,14 +189,12 @@ func validLabelName(identifier string) bool {
 	if len(identifier) == 0 {
 		return false
 	}
-	if !lexer.IsIdentifierChar([]rune(identifier)[0], 0, "") {
-		return false
-	}
 	if !strings.HasSuffix(identifier, ":") {
 		return false
 	}
 	return true
 }
+
 
 ```
 
