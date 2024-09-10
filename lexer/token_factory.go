@@ -52,7 +52,7 @@ func (tf *TokenCreator) tokenizerSelector() TokenizerHandler {
 		} else if _, found := tf.languageConfig.symbolTokens[r]; found {
 			tf.SetTokenizer(SymbolTokenizer(tf, string(r))) // Replace the defaultTokenizer with the operatorTokenizer
 			return nil, false, nil
-		} else if utils.IsDigit(r) {
+		} else if unicode.IsDigit(r) {
 			tf.SetTokenizer(NumberTokenizer(tf, string(r))) // Replace the defaultTokenizer with the numberTokenizer
 			return nil, false, nil
 

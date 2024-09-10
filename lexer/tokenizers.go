@@ -146,6 +146,7 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 				return nil, false, nil
 			}
 		}
+
 		tf.SetOverFlow(overflowRune)
 		symbolTokens := make([]*Token, 0)
 
