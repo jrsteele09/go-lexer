@@ -106,10 +106,12 @@ var SymbolTokens = map[rune]lexer.TokenIdentifier{
 }
 
 // comments defines comment syntax mappings
+// NOTE: Symbols used to construct comments should be in the SymbolTokens
 var comments = map[string]string{
 	"//":  "\n",
 	"/*":  "*/",
 	"rem": "\n",
+	";":   "\n",
 }
 
 // Custom tokenizers - On detection of the starting character, jump to a specific tokenizer.
@@ -119,6 +121,13 @@ var customTokenizers = map[string]lexer.TokenizerFunc{
 	"0x": lexer.HexTokenizer,
 	"%0": lexer.BinaryTokenizer,
 	"%1": lexer.BinaryTokenizer,
+}
+
+func TestSingleComment(t *testing.T) {
+	l := NewBasicLexer()
+	tokens, err := l.TokenizeLine("; let a = 10", 0)
+	require.NoError(t, err)
+	require.Len(t, tokens, 0)
 }
 
 // TestBasicExpression tests a basic tokenization of a line

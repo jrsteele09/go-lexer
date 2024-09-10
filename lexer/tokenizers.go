@@ -168,6 +168,9 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 				symbolTokens = append(symbolTokens, NewToken(tokenID, longestSymbol, longestSymbol))
 				i += len(longestSymbol)
 			} else {
+				if tf.commentParser.IsStartOfComment(symbolsString) {
+					return nil, false, nil
+				}
 				tokenID, found := tf.languageConfig.symbolTokens[rune(symbolsString[i])]
 				if !found {
 					return nil, false, fmt.Errorf("unknown symbol %s", string(symbolsString[i]))
