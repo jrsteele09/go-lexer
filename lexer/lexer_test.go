@@ -77,21 +77,21 @@ var OperatorTokens = map[string]lexer.TokenIdentifier{
 
 // SymbolTokens defines single delimeter runes to token mappings
 var SymbolTokens = map[rune]lexer.TokenIdentifier{
-	'+':  AddSymbolToken,
-	'/':  DivideSymbolToken,
-	'-':  MinusSymbolToken,
-	'*':  MultiplySymbolToken,
-	'=':  EqualsSymbolToken,
-	'<':  LessThanToken,
-	'>':  GreaterThanToken,
-	'(':  LeftParenthesis,
-	')':  RightParenthesis,
-	'{':  LeftCurlyBracket,
-	'}':  RightCurlyBracket,
-	'[':  LeftSquareBracket,
-	']':  RightSquareBracket,
-	',':  CommaToken,
-	';':  SemicolonToken,
+	'+': AddSymbolToken,
+	'/': DivideSymbolToken,
+	'-': MinusSymbolToken,
+	'*': MultiplySymbolToken,
+	'=': EqualsSymbolToken,
+	'<': LessThanToken,
+	'>': GreaterThanToken,
+	'(': LeftParenthesis,
+	')': RightParenthesis,
+	'{': LeftCurlyBracket,
+	'}': RightCurlyBracket,
+	'[': LeftSquareBracket,
+	']': RightSquareBracket,
+	',': CommaToken,
+	// ';':  SemicolonToken,
 	':':  ColonToken,
 	'.':  PeriodToken,
 	'|':  PipeToken,
@@ -125,7 +125,16 @@ var customTokenizers = map[string]lexer.TokenizerFunc{
 
 func TestSingleComment(t *testing.T) {
 	l := NewBasicLexer()
-	tokens, err := l.TokenizeLine("; let a = 10", 0)
+	tokens, err := l.TokenizeLine(";let a = 10", 0)
+	require.NoError(t, err)
+	require.Len(t, tokens, 0)
+}
+
+func TestAssemblerTypeMultiLineComments(t *testing.T) {
+	l := NewBasicLexer()
+	tokens, err := l.TokenizeLine(
+		`;* = $2000
+		;LDA #1`, 0)
 	require.NoError(t, err)
 	require.Len(t, tokens, 0)
 }

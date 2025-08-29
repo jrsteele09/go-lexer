@@ -186,6 +186,8 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	return func(r rune) ([]*Token, completed, error) {
 		if tf.languageConfig.IsCustomTokenizer(string(r)) { // CustomTokenizers take priority over symbols
 			return createToken(r)
+		} else if tf.commentParser.IsStartOfComment(symbolsString) { // Check for being in a comment - could be assembly ";"
+			return nil, true, nil
 		} else if _, found := tf.languageConfig.symbolTokens[r]; found {
 			symbolsString += string(r)
 		} else {
