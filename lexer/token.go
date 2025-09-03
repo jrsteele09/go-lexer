@@ -40,8 +40,9 @@ type Token struct {
 	ID           TokenIdentifier // The identifier for the type of token.
 	Literal      string          // The literal string content of the token.
 	Value        interface{}     // The value that the token represents, can be nil.
-	SourceLine   uint            // The line in the source text where this token occurs.
-	SourceColumn uint            // The column in the source text where this token occurs.
+	Filename     string
+	SourceLine   uint // The line in the source text where this token occurs.
+	SourceColumn uint // The column in the source text where this token occurs.
 }
 
 // String returns a string representation of a Token instance.

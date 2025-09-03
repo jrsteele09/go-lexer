@@ -125,7 +125,7 @@ var customTokenizers = map[string]lexer.TokenizerFunc{
 
 func TestSingleComment(t *testing.T) {
 	l := NewBasicLexer()
-	tokens, err := l.TokenizeLine(";let a = 10", 0)
+	tokens, err := l.TokenizeLine(";let a = 10", "testfile", 0)
 	require.NoError(t, err)
 	require.Len(t, tokens, 0)
 }
@@ -134,7 +134,7 @@ func TestAssemblerTypeMultiLineComments(t *testing.T) {
 	l := NewBasicLexer()
 	tokens, err := l.TokenizeLine(
 		`;* = $2000
-		;LDA #1`, 0)
+		;LDA #1`, "testfile", 0)
 	require.NoError(t, err)
 	require.Len(t, tokens, 0)
 }
@@ -142,7 +142,7 @@ func TestAssemblerTypeMultiLineComments(t *testing.T) {
 // TestBasicExpression tests a basic tokenization of a line
 func TestBasicExpression(t *testing.T) {
 	l := NewBasicLexer()
-	tokens, err := l.TokenizeLine("let a = 10", 0)
+	tokens, err := l.TokenizeLine("let a = 10", "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(tokens))
 	require.Equal(t, LetStatementToken, tokens[0].ID)
@@ -155,7 +155,7 @@ func TestBasicExpression(t *testing.T) {
 // TestStrings tests a basic tokenization of a line
 func TestStrings(t *testing.T) {
 	l := NewBasicLexer()
-	tokens, err := l.TokenizeLine("\" hello \",`hello`,'hello',\"'hello'\"", 0)
+	tokens, err := l.TokenizeLine("\" hello \",`hello`,'hello',\"'hello'\"", "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 8, len(tokens))
 	require.Equal(t, lexer.StringLiteral, tokens[0].ID)
@@ -172,7 +172,7 @@ func TestStrings(t *testing.T) {
 
 func TestBinary(t *testing.T) {
 	l := NewBasicLexer()
-	tokens, err := l.TokenizeLine("%01,%10", 0)
+	tokens, err := l.TokenizeLine("%01,%10", "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(tokens))
 	require.Equal(t, lexer.IntegerLiteral, tokens[0].ID)
@@ -187,7 +187,7 @@ func TestBinary(t *testing.T) {
 func TestIdentifierExpressionWithComment(t *testing.T) {
 	sourceCode := "abc	// Define an identifier"
 	l := NewBasicLexer()
-	tokens, err := l.TokenizeLine(sourceCode, 0)
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tokens))
 	require.Equal(t, IntegerVariableToken, tokens[0].ID)
@@ -203,7 +203,7 @@ func TestCrossLineComments(t *testing.T) {
 
 	l := NewBasicLexer()
 	r := strings.NewReader(sourceCode)
-	allTokens, err := l.Tokenize(r)
+	allTokens, err := l.Tokenize(r, "testfile")
 	require.NoError(t, err)
 	require.Equal(t, 5, len(allTokens)) // Includes two endOfLine tokens + endOfFile token
 }
@@ -212,7 +212,7 @@ func TestCrossLineComments(t *testing.T) {
 func TestFloatLexer(t *testing.T) {
 	l := NewBasicLexer()
 	sourceCode := "100.23"
-	tokens, err := l.TokenizeLine(sourceCode, 0)
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tokens))
 	require.Equal(t, lexer.NumberLiteral, tokens[0].ID)
@@ -223,7 +223,7 @@ func TestFloatLexer(t *testing.T) {
 func TestAssemblerTokens(t *testing.T) {
 	l := NewBasicLexer()
 	sourceCode := "LDA ($FF),X"
-	tokens, err := l.TokenizeLine(sourceCode, 0)
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 7, len(tokens))
 }
@@ -231,7 +231,7 @@ func TestAssemblerTokens(t *testing.T) {
 func TestHexTokens(t *testing.T) {
 	l := NewBasicLexer()
 	sourceCode := "0x1234"
-	tokens, err := l.TokenizeLine(sourceCode, 0)
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tokens))
 	require.Equal(t, tokens[0].Value.(uint16), uint16(0x1234))
@@ -241,7 +241,7 @@ func TestHexTokens(t *testing.T) {
 func TestOperators(t *testing.T) {
 	l := NewBasicLexer()
 	sourceCode := "=<>+-*/+++"
-	tokens, err := l.TokenizeLine(sourceCode, 0)
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(tokens))
 	require.Equal(t, EqualsSymbolToken, tokens[0].ID)
@@ -258,7 +258,7 @@ func TestOperators(t *testing.T) {
 func TestLabelParsing(t *testing.T) {
 	l := NewBasicLexer()
 	sourceCode := "test: if a == 10"
-	tokens, err := l.TokenizeLine(sourceCode, 0)
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(tokens))
 	require.Equal(t, LabelToken, tokens[0].ID)

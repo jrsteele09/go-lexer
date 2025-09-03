@@ -28,14 +28,14 @@ func NewLexer(language *LanguageConfig) *Lexer {
 
 // Tokenize reads from an io.Reader line by line, tokenizes each line using TokenizeLine,
 // and returns all the generated tokens.
-func (l *Lexer) Tokenize(r io.Reader) ([]*Token, error) {
+func (l *Lexer) Tokenize(r io.Reader, filename string) ([]*Token, error) {
 	var allTokens []*Token
 	scanner := bufio.NewScanner(r)
 	lineNo := uint(1)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		tokens, err := l.TokenizeLine(line, lineNo)
+		tokens, err := l.TokenizeLine(line, filename, lineNo)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +52,7 @@ func (l *Lexer) Tokenize(r io.Reader) ([]*Token, error) {
 }
 
 // TokenizeLine tokenizes a single line of input and returns an array of tokens.
-func (l *Lexer) TokenizeLine(line string, lineNo uint) ([]*Token, error) {
+func (l *Lexer) TokenizeLine(line string, filename string, lineNo uint) ([]*Token, error) {
 	var lineTokens []*Token
 
 	addNewTokens := func(column int, tokens []*Token) {
