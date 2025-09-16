@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 
 	"github.com/jrsteele09/go-lexer/lexer/comments"
@@ -37,7 +38,7 @@ func (l *Lexer) Tokenize(r io.Reader, filename string) ([]*Token, error) {
 		line := scanner.Text()
 		tokens, err := l.TokenizeLine(line, filename, lineNo)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("[%s line: %d] %w", filename, lineNo, err)
 		}
 		allTokens = append(allTokens, tokens...)
 		lineNo++
