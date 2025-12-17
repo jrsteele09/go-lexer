@@ -26,7 +26,7 @@ func NewTokenCreator(commentParser *comments.CommentParser, lc *LanguageConfig) 
 
 // Tokenize calls the current tokenizer, defaulting to the tokenizer identifier function.
 // Once a token has been created, it restores to identifying the type of the next token.
-func (tf *TokenCreator) Tokenize(r rune) ([]*Token, error) {
+func (tf *TokenCreator) Tokenize(r rune) ([]Token, error) {
 	tokens, completed, err := tf.currentTokenizer(r)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (tf *TokenCreator) Tokenize(r rune) ([]*Token, error) {
 // tokenizerSelector is the default tokenization function.
 // It identifies tokens based on individual runes.
 func (tf *TokenCreator) tokenizerSelector() TokenizerHandler {
-	return func(r rune) ([]*Token, completed, error) {
+	return func(r rune) ([]Token, completed, error) {
 		// Ignore the rune if in a comment or a space
 		if tf.commentParser.InComment() || unicode.IsSpace(r) {
 			return nil, false, nil

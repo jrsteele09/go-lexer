@@ -32,9 +32,9 @@ func WithCommentMap(cm map[string]string) LanguageOptions {
 }
 
 // WithSpecializationCreators is a LanguageOptions function for setting custom token creators.
-func WithSpecializationCreators(tc ...func(identifier string) *Token) LanguageOptions {
+func WithSpecializationCreators(tc ...func(identifier string) Token) LanguageOptions {
 	return func(ll *LanguageConfig) {
-		ll.tokenCreators = make([]func(identifier string) *Token, 0)
+		ll.tokenCreators = make([]func(identifier string) Token, 0)
 		ll.tokenCreators = append(ll.tokenCreators, tc...)
 	}
 }

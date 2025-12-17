@@ -39,7 +39,7 @@ const (
 type Token struct {
 	ID           TokenIdentifier // The identifier for the type of token.
 	Literal      string          // The literal string content of the token.
-	Value        interface{}     // The value that the token represents, can be nil.
+	Value        any             // The value that the token represents, can be nil.
 	Filename     string
 	SourceLine   uint // The line in the source text where this token occurs.
 	SourceColumn uint // The column in the source text where this token occurs.
@@ -54,8 +54,8 @@ func (t Token) String() string {
 // NewToken is a constructor function for creating a new Token.
 // It takes a TokenIdentifier to specify the type, a string for the literal representation,
 // and an optional value that the token represents.
-func NewToken(id TokenIdentifier, literal string, value interface{}) *Token {
-	return &Token{
+func NewToken(id TokenIdentifier, literal string, value interface{}) Token {
+	return Token{
 		ID:      id,
 		Literal: literal,
 		Value:   value,

@@ -471,23 +471,23 @@ func NewBasicLexer() *lexer.Lexer {
 	return lexer.NewLexer(ll)
 }
 
-func integerVariableTokenCreator(identifier string) *lexer.Token {
+func integerVariableTokenCreator(identifier string) lexer.Token {
 	if validStringVariableName(identifier) || validLabelName(identifier) {
-		return nil
+		return lexer.Token{}
 	}
 	return lexer.NewToken(IntegerVariableToken, identifier, nil)
 }
 
-func basicLangstringVariableTokenCreator(identifier string) *lexer.Token {
+func basicLangstringVariableTokenCreator(identifier string) lexer.Token {
 	if !validStringVariableName(identifier) || validLabelName(identifier) {
-		return nil
+		return lexer.Token{}
 	}
 	return lexer.NewToken(StringVariableToken, identifier, nil)
 }
 
-func labelTokenCreator(identifier string) *lexer.Token {
+func labelTokenCreator(identifier string) lexer.Token {
 	if !validLabelName(identifier) {
-		return nil
+		return lexer.Token{}
 	}
 	return lexer.NewToken(LabelToken, identifier, 0)
 }

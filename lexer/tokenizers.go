@@ -12,7 +12,7 @@ import (
 func NumberTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	parsedString := initialString
 
-	return func(r rune) ([]*Token, completed, error) {
+	return func(r rune) ([]Token, completed, error) {
 		if utils.IsDigit(r) {
 			parsedString = parsedString + string(r)
 		} else if tf.languageConfig.IsCustomTokenizer(parsedString + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
@@ -27,11 +27,11 @@ func NumberTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 			}
 			switch number.(type) {
 			case float64:
-				return []*Token{NewToken(NumberLiteral, parsedString, number)}, true, nil
+				return []Token{NewToken(NumberLiteral, parsedString, number)}, true, nil
 			case int64:
-				return []*Token{NewToken(IntegerLiteral, parsedString, number)}, true, nil
+				return []Token{NewToken(IntegerLiteral, parsedString, number)}, true, nil
 			}
-			return []*Token{NewToken(NumberLiteral, parsedString, number)}, true, nil
+			return []Token{NewToken(NumberLiteral, parsedString, number)}, true, nil
 		}
 		return nil, false, nil
 	}
@@ -44,7 +44,7 @@ func BinaryTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 		parsedString = initialString
 	}
 
-	return func(r rune) ([]*Token, completed, error) {
+	return func(r rune) ([]Token, completed, error) {
 		if utils.IsBinaryDigit(r) {
 			parsedString = parsedString + string(r)
 		} else if tf.languageConfig.IsCustomTokenizer(parsedString + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
@@ -57,7 +57,7 @@ func BinaryTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 			if err != nil {
 				return nil, true, fmt.Errorf("BinaryTokenizer BinaryStringToNumber [%w]", err)
 			}
-			return []*Token{NewToken(IntegerLiteral, parsedString, number)}, true, nil
+			return []Token{NewToken(IntegerLiteral, parsedString, number)}, true, nil
 		}
 		return nil, false, nil
 	}
@@ -70,7 +70,7 @@ func HexTokenizer(tf *TokenCreator, initalString string) TokenizerHandler {
 		parsedString = "0x"
 	}
 
-	return func(r rune) ([]*Token, completed, error) {
+	return func(r rune) ([]Token, completed, error) {
 		if utils.IsHexDigit(r) {
 			parsedString = parsedString + string(r)
 		} else {
@@ -80,7 +80,7 @@ func HexTokenizer(tf *TokenCreator, initalString string) TokenizerHandler {
 			if err != nil {
 				return nil, false, errors.Wrap(err, "hexTokenizer stringToNumber")
 			}
-			return []*Token{NewToken(HexLiteral, parsedString, number)}, true, nil
+			return []Token{NewToken(HexLiteral, parsedString, number)}, true, nil
 		}
 		return nil, false, nil
 	}
@@ -92,10 +92,10 @@ func StringTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	var parsedString string
 	tf.parsingString = true
 
-	return func(runeChar rune) ([]*Token, completed, error) {
+	return func(runeChar rune) ([]Token, completed, error) {
 		if string(runeChar) == startRune {
 			tf.parsingString = false
-			return []*Token{NewToken(StringLiteral, "", parsedString)}, true, nil
+			return []Token{NewToken(StringLiteral, "", parsedString)}, true, nil
 		}
 
 		parsedString += string(runeChar)
@@ -107,7 +107,7 @@ func StringTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	parsedString := initialString
 
-	return func(runeChar rune) ([]*Token, completed, error) {
+	return func(runeChar rune) ([]Token, completed, error) {
 		if !utils.IsIdentifierChar(runeChar, len(parsedString), tf.languageConfig.extendedIdentifierRunes, tf.languageConfig.identifierTermination) {
 			tf.SetOverFlow(runeChar)
 
@@ -115,19 +115,19 @@ func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandle
 				return nil, false, nil
 			}
 			t := tf.languageConfig.tokenFromIdentifier(parsedString)
-			if t == nil {
+			if t.ID == NullType {
 				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
 			}
-			return []*Token{t}, true, nil
+			return []Token{t}, true, nil
 		}
 		parsedString += string(runeChar)
 
 		if strings.Contains(tf.languageConfig.identifierTermination, string(runeChar)) {
 			t := tf.languageConfig.tokenFromIdentifier(parsedString)
-			if t == nil {
+			if t.ID == NullType {
 				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
 			}
-			return []*Token{t}, true, nil
+			return []Token{t}, true, nil
 		}
 		return nil, false, nil
 	}
@@ -137,7 +137,7 @@ func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandle
 func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	symbolsString := string(initialString)
 
-	createToken := func(overflowRune rune) ([]*Token, completed, error) {
+	createToken := func(overflowRune rune) ([]Token, completed, error) {
 		// First check that the parsed symbolString + overflowRune doesn't match a custom tokenizer
 		resetTokenizer := completed(true)
 		if len(symbolsString) > 0 {
@@ -156,7 +156,7 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 		}
 
 		tf.SetOverFlow(overflowRune)
-		symbolTokens := make([]*Token, 0)
+		symbolTokens := make([]Token, 0)
 
 		// Parses potentially larger Operator tokens such as "<=" and single symbols such as
 		// "+", "-" ...
@@ -191,7 +191,7 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 		return symbolTokens, resetTokenizer, nil
 	}
 
-	return func(r rune) ([]*Token, completed, error) {
+	return func(r rune) ([]Token, completed, error) {
 		if tf.languageConfig.IsCustomTokenizer(string(r)) { // CustomTokenizers take priority over symbols
 			return createToken(r)
 		} else if tf.commentParser.IsStartOfComment(symbolsString) { // Check for being in a comment - could be assembly ";"
