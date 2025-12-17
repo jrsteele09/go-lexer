@@ -269,6 +269,179 @@ func TestLabelParsing(t *testing.T) {
 	require.Equal(t, lexer.EndOfLineType, tokens[5].ID)
 }
 
+// TestMultipleTokenizeLine tests calling TokenizeLine multiple times on the same lexer
+func TestMultipleTokenizeLine(t *testing.T) {
+	l := NewBasicLexer()
+
+	// First call
+	tokens1, err := l.TokenizeLine("let a = 10", "testfile", 0)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(tokens1))
+
+	// Second call - this should work but might crash
+	tokens2, err := l.TokenizeLine("let b = 20", "testfile", 1)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(tokens2))
+
+	// Third call
+	tokens3, err := l.TokenizeLine("for i = 1 to 10", "testfile", 2)
+	require.NoError(t, err)
+	require.Equal(t, 7, len(tokens3))
+
+	// Fourth call with comment (might trigger state issues)
+	tokens4, err := l.TokenizeLine("let c = 30 // comment", "testfile", 3)
+	require.NoError(t, err)
+	require.Greater(t, len(tokens4), 0)
+
+	// Fifth call with multiline comment start
+	tokens5, err := l.TokenizeLine("let d = 40 /* comment", "testfile", 4)
+	require.NoError(t, err)
+	require.Greater(t, len(tokens5), 0)
+}
+
+// TestMultiLineProgram tests the Tokenize method with multiple lines
+// This reproduces a crash that occurs on the second line
+func TestMultiLineProgram(t *testing.T) {
+	l := NewBasicLexer()
+
+	program := `let a = 10
+for i = 1 to 10
+let b = 20
+next i`
+
+	reader := strings.NewReader(program)
+	tokens, err := l.Tokenize(reader, "test.bas")
+
+	require.NoError(t, err)
+	require.Greater(t, len(tokens), 0)
+}
+
+// TestTokenizeLineAfterTokenize tests calling TokenizeLine after Tokenize
+// This should reproduce the nil pointer crash
+func TestTokenizeLineAfterTokenize(t *testing.T) {
+	l := NewBasicLexer()
+
+	// First use Tokenize method
+	program := `let a = 10
+for i = 1 to 10`
+	reader := strings.NewReader(program)
+	tokens1, err := l.Tokenize(reader, "test1.bas")
+	require.NoError(t, err)
+	require.Greater(t, len(tokens1), 0)
+
+	// Now try TokenizeLine - this might crash
+	tokens2, err := l.TokenizeLine("let b = 20", "test2.bas", 1)
+	require.NoError(t, err)
+	require.Greater(t, len(tokens2), 0)
+}
+
+// TestMultipleCallsToTokenize tests calling Tokenize multiple times on the same lexer.
+// Current/expected behavior: the lexer is stateful; if a multiline comment is opened
+// and never closed, subsequent tokenization calls will continue to treat input as
+// being inside that comment (even if the filename changes).
+func TestMultipleCallsToTokenize(t *testing.T) {
+	l := NewBasicLexer()
+
+	// First call - file with unclosed multiline comment
+	program1 := `let a = 10 /* unclosed comment
+for i = 1 to 10`
+	reader1 := strings.NewReader(program1)
+	tokens1, err := l.Tokenize(reader1, "test1.bas")
+	require.NoError(t, err)
+	// Only the first line before the comment starts should produce tokens
+	t.Logf("First Tokenize call returned %d tokens", len(tokens1))
+
+	// Second call to Tokenize on a DIFFERENT file
+	// Because the prior file left a multiline comment open, this entire second input is ignored.
+	program2 := `let b = 20
+let c = 30`
+	reader2 := strings.NewReader(program2)
+	tokens2, err := l.Tokenize(reader2, "test2.bas")
+	require.NoError(t, err)
+	t.Logf("Second Tokenize call returned %d tokens", len(tokens2))
+	// Since all lines are inside the still-open multiline comment, only EOF is produced.
+	require.Len(t, tokens2, 1)
+}
+
+// TestMultipleCallsToTokenizeLine tests calling TokenizeLine multiple times
+// This may cause issues if internal state is not properly reset between calls
+func TestMultipleCallsToTokenizeLine(t *testing.T) {
+	l := NewBasicLexer()
+
+	// First call to TokenizeLine
+	tokens1, err := l.TokenizeLine("let a = 10 rem first line", "test1.bas", 1)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(tokens1))
+
+	// Second call to TokenizeLine - this might crash if state wasn't reset
+	tokens2, err := l.TokenizeLine("for i = 1 to 10 rem second line", "test2.bas", 1)
+	require.NoError(t, err)
+	require.Equal(t, 7, len(tokens2))
+
+	// Third call
+	tokens3, err := l.TokenizeLine("let b = 20 rem third line", "test3.bas", 1)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(tokens3))
+
+	// Fourth call
+	tokens4, err := l.TokenizeLine("next i rem fourth line", "test4.bas", 1)
+	require.NoError(t, err)
+	require.Greater(t, len(tokens4), 0)
+}
+
+// TestMultilineCommentAcrossTokenizeLine tests calling TokenizeLine with an unclosed multiline comment.
+// Expected behavior for a stateful lexer: once a multiline comment is opened, subsequent
+// lines are ignored until the closing delimiter is encountered.
+func TestMultilineCommentAcrossTokenizeLine(t *testing.T) {
+	l := NewBasicLexer()
+
+	// First call - starts a multiline comment but doesn't close it
+	tokens1, err := l.TokenizeLine("let a = 10 /* start comment", "test1.bas", 1)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(tokens1)) // Should have let, a, =, 10, EOL
+
+	// Second call - the comment is still open, so the whole line is ignored.
+	tokens2, err := l.TokenizeLine("let b = 20", "test2.bas", 2)
+	require.NoError(t, err)
+	t.Logf("Second call returned %d tokens (expected 0 while comment is open)", len(tokens2))
+	require.Len(t, tokens2, 0)
+
+	// Third call - contains the close of a comment that was never properly managed
+	tokens3, err := l.TokenizeLine("end comment */ let c = 30", "test3.bas", 3)
+	require.NoError(t, err)
+	// After closing the comment with */, the rest should be tokenized
+	t.Logf("Third call returned %d tokens", len(tokens3))
+	require.Greater(t, len(tokens3), 0)
+}
+
+// TestMultipleFilesWithTokenizeLine is like TestMultipleCallsToTokenize, but using TokenizeLine.
+// Current/expected behavior: the lexer is stateful; an unclosed multiline comment causes
+// subsequent lines (even with a different filename) to be treated as inside the comment.
+func TestMultipleFilesWithTokenizeLine(t *testing.T) {
+	l := NewBasicLexer()
+
+	// Process first file with unclosed multiline comment
+	tokens1_1, err := l.TokenizeLine("let a = 10 /* unclosed comment", "file1.bas", 1)
+	require.NoError(t, err)
+	t.Logf("File1 Line1: %d tokens", len(tokens1_1))
+
+	tokens1_2, err := l.TokenizeLine("for i = 1 to 10", "file1.bas", 2)
+	require.NoError(t, err)
+	t.Logf("File1 Line2: %d tokens (correctly 0 - inside comment)", len(tokens1_2))
+	require.Equal(t, 0, len(tokens1_2), "Line 2 of file1 should be inside comment")
+
+	// Now process a DIFFERENT file - the prior multiline comment is still open.
+	tokens2_1, err := l.TokenizeLine("let b = 20", "file2.bas", 1)
+	require.NoError(t, err)
+	t.Logf("File2 Line1: %d tokens (expected 0 - still inside comment)", len(tokens2_1))
+	require.Len(t, tokens2_1, 0)
+
+	tokens2_2, err := l.TokenizeLine("let c = 30", "file2.bas", 2)
+	require.NoError(t, err)
+	t.Logf("File2 Line2: %d tokens (expected 0 - still inside comment)", len(tokens2_2))
+	require.Len(t, tokens2_2, 0)
+}
+
 // NewBasicLexer constructs a new Lexer using predefined language settings
 func NewBasicLexer() *lexer.Lexer {
 	ll := lexer.NewLexerLanguage(
