@@ -16,6 +16,8 @@ const (
 	ForStatementToken       lexer.TokenIdentifier = 0x81
 	ToStatementToken        lexer.TokenIdentifier = 0xA4
 	NextStatementToken      lexer.TokenIdentifier = 0x82
+	PrintStatementToken     lexer.TokenIdentifier = 0x83
+	EndStatementToken       lexer.TokenIdentifier = 0x84
 	AddSymbolToken          lexer.TokenIdentifier = 0xAA
 	DivideSymbolToken       lexer.TokenIdentifier = 0xAD
 	MinusSymbolToken        lexer.TokenIdentifier = 0xAB
@@ -59,11 +61,13 @@ const (
 
 // KeywordTokens defines keyword to token mappings
 var KeywordTokens = map[string]lexer.TokenIdentifier{
-	"if":   IfStatementToken,
-	"let":  LetStatementToken,
-	"for":  ForStatementToken,
-	"to":   ToStatementToken,
-	"next": NextStatementToken,
+	"if":    IfStatementToken,
+	"let":   LetStatementToken,
+	"for":   ForStatementToken,
+	"to":    ToStatementToken,
+	"next":  NextStatementToken,
+	"print": PrintStatementToken,
+	"end":   EndStatementToken,
 }
 
 // OperatorTokens defines the Operator token mappings that can consist of multiple symbol tokens
@@ -114,9 +118,9 @@ var comments = map[string]string{
 	";":   "\n",
 }
 
-// Custom tokenizers - On detection of the starting character, jump to a specific tokenizer.
-// Custom tokenizers will override symbol tokens.
-var customTokenizers = map[string]lexer.TokenizerFunc{
+// Prefix tokenizers - On detection of the starting character, jump to a specific tokenizer.
+// Prefix tokenizers will override symbol tokens.
+var prefixTokenizers = map[string]lexer.TokenizerFunc{
 	"$":  lexer.HexTokenizer,
 	"0x": lexer.HexTokenizer,
 	"%0": lexer.BinaryTokenizer,
@@ -304,10 +308,11 @@ func TestMultipleTokenizeLine(t *testing.T) {
 func TestMultiLineProgram(t *testing.T) {
 	l := NewBasicLexer()
 
-	program := `let a = 10
-for i = 1 to 10
-let b = 20
-next i`
+	program := `PRINT "HELLO WORLD"
+FOR I = 1 TO 10
+PRINT I
+NEXT I
+END`
 
 	reader := strings.NewReader(program)
 	tokens, err := l.Tokenize(reader, "test.bas")
@@ -442,15 +447,25 @@ func TestMultipleFilesWithTokenizeLine(t *testing.T) {
 	require.Len(t, tokens2_2, 0)
 }
 
+func TestAVerySimpleIdentifier(t *testing.T) {
+	l := NewBasicLexer()
+	sourceCode := "I"
+	tokens, err := l.TokenizeLine(sourceCode, "testfile", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(tokens))
+	require.Equal(t, IntegerVariableToken, tokens[0].ID)
+	require.Equal(t, lexer.EndOfLineType, tokens[1].ID)
+}
+
 // NewBasicLexer constructs a new Lexer using predefined language settings
 func NewBasicLexer() *lexer.Lexer {
 	ll := lexer.NewLexerLanguage(
 		lexer.WithKeywords(KeywordTokens),
-		lexer.WithCustomTokenizers(customTokenizers),
+		lexer.WithPrefixTokenizers(prefixTokenizers),
 		lexer.WithOperators(OperatorTokens),
 		lexer.WithSymbols(SymbolTokens),
 		lexer.WithCommentMap(comments),
-		lexer.WithSpecializationCreators(labelTokenCreator, integerVariableTokenCreator, stringVariableTokenCreator),
+		lexer.WithSpecializationCreators(labelTokenCreator, integerVariableTokenCreator, basicLangstringVariableTokenCreator),
 		lexer.WithExtendendedIdentifierRunes("_", ":$"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
 	)
 	return lexer.NewLexer(ll)
@@ -463,7 +478,7 @@ func integerVariableTokenCreator(identifier string) *lexer.Token {
 	return lexer.NewToken(IntegerVariableToken, identifier, nil)
 }
 
-func stringVariableTokenCreator(identifier string) *lexer.Token {
+func basicLangstringVariableTokenCreator(identifier string) *lexer.Token {
 	if !validStringVariableName(identifier) || validLabelName(identifier) {
 		return nil
 	}

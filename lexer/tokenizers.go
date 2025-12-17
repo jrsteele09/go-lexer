@@ -114,12 +114,20 @@ func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandle
 			if tf.commentParser.IsStartOfComment(parsedString) {
 				return nil, false, nil
 			}
-			return []*Token{tf.languageConfig.tokenFromIdentifier(parsedString)}, true, nil
+			t := tf.languageConfig.tokenFromIdentifier(parsedString)
+			if t == nil {
+				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
+			}
+			return []*Token{t}, true, nil
 		}
 		parsedString += string(runeChar)
 
 		if strings.Contains(tf.languageConfig.identifierTermination, string(runeChar)) {
-			return []*Token{tf.languageConfig.tokenFromIdentifier(parsedString)}, true, nil
+			t := tf.languageConfig.tokenFromIdentifier(parsedString)
+			if t == nil {
+				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
+			}
+			return []*Token{t}, true, nil
 		}
 		return nil, false, nil
 	}
