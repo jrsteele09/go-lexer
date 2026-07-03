@@ -74,6 +74,7 @@ const (
 	GreaterThanOrEqualToken lexer.TokenIdentifier = 0x10E
 	IncrementToken          lexer.TokenIdentifier = 0x10F
 	EqualityToken           lexer.TokenIdentifier = 0x110
+	PercentageToken         lexer.TokenIdentifier = 0x111
 )
 
 // KeywordTokens defines keyword to token mappings
@@ -94,7 +95,7 @@ var OperatorTokens = map[string]lexer.TokenIdentifier{
 	"==": EqualityToken,
 }
 
-// SymbolTokens defines single delimeter runes to token mappings
+// SymbolTokens defines single delimiter runes to token mappings
 var SymbolTokens = map[rune]lexer.TokenIdentifier{
 	'+':  AddSymbolToken,
 	'/':  DivideSymbolToken,
@@ -121,6 +122,7 @@ var SymbolTokens = map[rune]lexer.TokenIdentifier{
 	'#':  HashToken,
 	'$':  DollarToken,
 	'\\': BackslashToken,
+	'%':  PercentageToken,
 }
 
 // comments defines comment syntax mappings
@@ -128,44 +130,50 @@ var comments = map[string]string{
 	"//":  "\n",
 	"/*":  "*/",
 	"rem": "\n",
+	";":   "\n",
 }
 
-// Custom tokenizers
-var customTokenizers = map[rune]lexer.TokenizerHandler{
-	'$': lexer.HexTokenizer,
+// prefixTokenizers - on detection of the starting string, jump to a specific tokenizer.
+// Prefix tokenizers override symbol tokens.
+var prefixTokenizers = map[string]lexer.TokenizerFunc{
+	"$":  lexer.HexTokenizer,
+	"0x": lexer.HexTokenizer,
+	"%0": lexer.BinaryTokenizer,
+	"%1": lexer.BinaryTokenizer,
 }
 
 // NewBasicLexer constructs a new Lexer using predefined language settings
 func NewBasicLexer() *lexer.Lexer {
-	ll := lexer.NewLexerLanguage(
-		lexer.WithKeywords(KeywordTokens),
-		lexer.WithCustomTokenizers(customTokenizers),
-		lexer.WithOperators(OperatorTokens),
-		lexer.WithSymbols(SymbolTokens),
-		lexer.WithCommentMap(comments),
-		lexer.WithSpecializationCreators(labelTokenCreator, integerVariableTokenCreator, stringVariableTokenCreator),
-		lexer.WithExtendendedIdentifierRunes("_", ":$"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
-	)
+	ll := lexer.NewLexerLanguage(lexer.LanguageConfig{
+		Keywords:                KeywordTokens,
+		Operators:               OperatorTokens,
+		Symbols:                 SymbolTokens,
+		Comments:                comments,
+		PrefixTokenizers:        prefixTokenizers,
+		ExtendedIdentifierRunes: "_",
+		IdentifierTermination:   ":$",
+		TokenCreators:           []func(string) lexer.Token{labelTokenCreator, integerVariableTokenCreator, stringVariableTokenCreator},
+	})
 	return lexer.NewLexer(ll)
 }
 
-func integerVariableTokenCreator(identifier string) *lexer.Token {
+func integerVariableTokenCreator(identifier string) lexer.Token {
 	if validStringVariableName(identifier) || validLabelName(identifier) {
-		return nil
+		return lexer.Token{}
 	}
 	return lexer.NewToken(IntegerVariableToken, identifier, nil)
 }
 
-func stringVariableTokenCreator(identifier string) *lexer.Token {
+func stringVariableTokenCreator(identifier string) lexer.Token {
 	if !validStringVariableName(identifier) || validLabelName(identifier) {
-		return nil
+		return lexer.Token{}
 	}
 	return lexer.NewToken(StringVariableToken, identifier, nil)
 }
 
-func labelTokenCreator(identifier string) *lexer.Token {
+func labelTokenCreator(identifier string) lexer.Token {
 	if !validLabelName(identifier) {
-		return nil
+		return lexer.Token{}
 	}
 	return lexer.NewToken(LabelToken, identifier, 0)
 }
@@ -206,8 +214,14 @@ After creating a language configuration, you can create a new Lexer instance and
 // Create new Lexer instance
 l := lexer.NewLexer(languageConfig)
 
-// Tokenize a line
-tokens, err := l.TokenizeLine("let x = 42", 1)
+// Tokenize a single line (filename is used in error messages)
+tokens, err := l.TokenizeLine("let x = 42", "myfile.bas", 1)
+if err != nil {
+    // Handle error
+}
+
+// Tokenize a full io.Reader (e.g. an open file)
+tokens, err = l.Tokenize(reader, "myfile.bas")
 if err != nil {
     // Handle error
 }
