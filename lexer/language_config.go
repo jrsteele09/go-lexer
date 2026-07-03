@@ -6,33 +6,29 @@ type TokenizerFunc func(tf *TokenCreator, initialString string) TokenizerHandler
 
 // LanguageConfig is the struct containing the configurations for the lexer.
 type LanguageConfig struct {
-	keywordTokens           map[string]TokenIdentifier
-	operatorTokens          map[string]TokenIdentifier      // Map of operator tokens.
-	customTokenizers        map[string]TokenizerFunc        // customer tokenizers allow language custom tokenizers to be added to the lexer
-	symbolTokens            map[rune]TokenIdentifier        // Delimeter tokens
-	comments                map[string]string               // Map of comment delimiters.
-	extendedIdentifierRunes string                          // Map of extra chars (runes) that can be part of an identifier name
-	identifierTermination   string                          // Map of chars that will terminate an identifier, for example ":" could be used to identify a label
-	tokenCreators           []func(identifier string) Token // Custom token creators.
+	Keywords                map[string]TokenIdentifier
+	Operators               map[string]TokenIdentifier      // Multi-character operator tokens e.g. "<=", "=="
+	PrefixTokenizers        map[string]TokenizerFunc        // Language-specific tokenizers keyed by their trigger string
+	Symbols                 map[rune]TokenIdentifier        // Single-rune symbol tokens
+	Comments                map[string]string               // Comment delimiters: open -> close, e.g. "//" -> "\n"
+	ExtendedIdentifierRunes string                          // Extra runes that are valid inside an identifier name
+	IdentifierTermination   string                          // Runes that end an identifier and are included in it, e.g. ":" for labels
+	TokenCreators           []func(identifier string) Token // Custom token creators called when no keyword matches
 }
 
-// NewLexerLanguage creates a new LanguageConfig using the provided options.
-func NewLexerLanguage(opts ...LanguageOptions) *LanguageConfig {
-	ll := &LanguageConfig{}
-	for _, opt := range opts {
-		opt(ll)
-	}
-	return ll
+// NewLexerLanguage creates a new LanguageConfig from the provided configuration.
+func NewLexerLanguage(config LanguageConfig) *LanguageConfig {
+	return &config
 }
 
 // tokenFromIdentifier searches for a token matching the given identifier
 // using custom token creators and returns the token if found.
 func (ll *LanguageConfig) tokenFromIdentifier(identifier string) Token {
-	if tokenID, ok := ll.keywordTokens[identifier]; ok {
+	if tokenID, ok := ll.Keywords[identifier]; ok {
 		return NewToken(tokenID, identifier, nil)
 	}
 
-	for _, c := range ll.tokenCreators {
+	for _, c := range ll.TokenCreators {
 		if t := c(identifier); t.ID != NullType {
 			return t
 		}
@@ -41,11 +37,11 @@ func (ll *LanguageConfig) tokenFromIdentifier(identifier string) Token {
 }
 
 func (ll *LanguageConfig) IsCustomTokenizer(parsedString string) bool {
-	_, found := ll.customTokenizers[parsedString]
+	_, found := ll.PrefixTokenizers[parsedString]
 	return found
 }
 
 func (ll *LanguageConfig) Tokenizer(parsedString string) TokenizerFunc {
-	tokenizer := ll.customTokenizers[parsedString]
+	tokenizer := ll.PrefixTokenizers[parsedString]
 	return tokenizer
 }

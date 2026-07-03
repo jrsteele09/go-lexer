@@ -23,7 +23,7 @@ type Lexer struct {
 func NewLexer(language *LanguageConfig) *Lexer {
 	return &Lexer{
 		language:      language,
-		commentParser: comments.NewCommentParser(language.comments),
+		commentParser: comments.NewCommentParser(language.Comments),
 	}
 }
 

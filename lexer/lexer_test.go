@@ -459,15 +459,19 @@ func TestAVerySimpleIdentifier(t *testing.T) {
 
 // NewBasicLexer constructs a new Lexer using predefined language settings
 func NewBasicLexer() *lexer.Lexer {
-	ll := lexer.NewLexerLanguage(
-		lexer.WithKeywords(KeywordTokens),
-		lexer.WithPrefixTokenizers(prefixTokenizers),
-		lexer.WithOperators(OperatorTokens),
-		lexer.WithSymbols(SymbolTokens),
-		lexer.WithCommentMap(comments),
-		lexer.WithSpecializationCreators(labelTokenCreator, integerVariableTokenCreator, basicLangstringVariableTokenCreator),
-		lexer.WithExtendendedIdentifierRunes("_", ":$"), // Allow underscores in identifiers, but when parsing an identifier, stop at a colon (Enables things like Labels)
-	)
+	ll := lexer.NewLexerLanguage(lexer.LanguageConfig{
+		Keywords:                KeywordTokens,
+		Operators:               OperatorTokens,
+		Symbols:                 SymbolTokens,
+		Comments:                comments,
+		PrefixTokenizers:        prefixTokenizers,
+		ExtendedIdentifierRunes: "_",
+		IdentifierTermination:   ":$",
+		TokenCreators: []func(string) lexer.Token{
+			labelTokenCreator,
+			integerVariableTokenCreator,
+			basicLangstringVariableTokenCreator},
+	})
 	return lexer.NewLexer(ll)
 }
 

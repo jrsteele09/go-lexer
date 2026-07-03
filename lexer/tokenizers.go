@@ -17,7 +17,7 @@ func NumberTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 			parsedString = parsedString + string(r)
 		} else if tf.languageConfig.IsCustomTokenizer(parsedString + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
 			parsedString += string(r)
-			tf.SetTokenizer(tf.languageConfig.customTokenizers[parsedString](tf, parsedString))
+			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedString](tf, parsedString))
 			return nil, false, nil
 		} else {
 			tf.SetOverFlow(r)
@@ -49,7 +49,7 @@ func BinaryTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 			parsedString = parsedString + string(r)
 		} else if tf.languageConfig.IsCustomTokenizer(parsedString + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
 			parsedString += string(r)
-			tf.SetTokenizer(tf.languageConfig.customTokenizers[parsedString](tf, parsedString))
+			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedString](tf, parsedString))
 			return nil, false, nil
 		} else {
 			tf.SetOverFlow(r)
@@ -108,7 +108,7 @@ func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandle
 	parsedString := initialString
 
 	return func(runeChar rune) ([]Token, completed, error) {
-		if !utils.IsIdentifierChar(runeChar, len(parsedString), tf.languageConfig.extendedIdentifierRunes, tf.languageConfig.identifierTermination) {
+		if !utils.IsIdentifierChar(runeChar, len(parsedString), tf.languageConfig.ExtendedIdentifierRunes, tf.languageConfig.IdentifierTermination) {
 			tf.SetOverFlow(runeChar)
 
 			if tf.commentParser.IsStartOfComment(parsedString) {
@@ -122,7 +122,7 @@ func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandle
 		}
 		parsedString += string(runeChar)
 
-		if strings.Contains(tf.languageConfig.identifierTermination, string(runeChar)) {
+		if strings.Contains(tf.languageConfig.IdentifierTermination, string(runeChar)) {
 			t := tf.languageConfig.tokenFromIdentifier(parsedString)
 			if t.ID == NullType {
 				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
@@ -165,21 +165,21 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 			var longestSymbol string
 			for x := i + 1; x < len(symbolsString); x++ {
 				symbolStr := symbolsString[i : x+1]
-				if _, found := tf.languageConfig.operatorTokens[symbolStr]; found {
+				if _, found := tf.languageConfig.Operators[symbolStr]; found {
 					longestSymbol = symbolStr
 				} else if tf.commentParser.IsStartOfComment(symbolStr) {
 					return nil, false, nil
 				}
 			}
 			if longestSymbol != "" {
-				tokenID := tf.languageConfig.operatorTokens[longestSymbol]
+				tokenID := tf.languageConfig.Operators[longestSymbol]
 				symbolTokens = append(symbolTokens, NewToken(tokenID, longestSymbol, longestSymbol))
 				i += len(longestSymbol)
 			} else {
 				if tf.commentParser.IsStartOfComment(symbolsString) {
 					return nil, false, nil
 				}
-				tokenID, found := tf.languageConfig.symbolTokens[rune(symbolsString[i])]
+				tokenID, found := tf.languageConfig.Symbols[rune(symbolsString[i])]
 				if !found {
 					return nil, false, fmt.Errorf("unknown symbol %s", string(symbolsString[i]))
 				}
@@ -196,7 +196,7 @@ func SymbolTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 			return createToken(r)
 		} else if tf.commentParser.IsStartOfComment(symbolsString) { // Check for being in a comment - could be assembly ";"
 			return nil, true, nil
-		} else if _, found := tf.languageConfig.symbolTokens[r]; found {
+		} else if _, found := tf.languageConfig.Symbols[r]; found {
 			symbolsString += string(r)
 		} else {
 			return createToken(r)

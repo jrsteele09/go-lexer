@@ -49,7 +49,7 @@ func (tf *TokenCreator) tokenizerSelector() TokenizerHandler {
 		if tf.languageConfig.IsCustomTokenizer(string(r)) {
 			tf.SetTokenizer(tf.languageConfig.Tokenizer(string(r))(tf, string(r)))
 			return nil, false, nil
-		} else if _, found := tf.languageConfig.symbolTokens[r]; found {
+		} else if _, found := tf.languageConfig.Symbols[r]; found {
 			tf.SetTokenizer(SymbolTokenizer(tf, string(r))) // Replace the defaultTokenizer with the symbolTokenizer
 			return nil, false, nil
 		} else if unicode.IsDigit(r) {
@@ -60,7 +60,7 @@ func (tf *TokenCreator) tokenizerSelector() TokenizerHandler {
 			tf.SetTokenizer(StringTokenizer(tf, string(r))) // Replace the defaultTokenizer with the stringTokenizer
 			return nil, false, nil
 
-		} else if utils.IsIdentifierChar(r, 0, tf.languageConfig.extendedIdentifierRunes, tf.languageConfig.identifierTermination) {
+		} else if utils.IsIdentifierChar(r, 0, tf.languageConfig.ExtendedIdentifierRunes, tf.languageConfig.IdentifierTermination) {
 			tf.SetTokenizer(IdentifierTokenizer(tf, string(r))) // Replace the defaultTokenizer with the identifierTokenizer
 			return nil, false, nil
 		} else if tf.commentParser.IsStartOfComment(string(r)) { // Check for being in a comment - could be assembly ";"
