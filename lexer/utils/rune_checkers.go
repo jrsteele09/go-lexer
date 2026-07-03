@@ -6,9 +6,9 @@ import (
 )
 
 // IsDigit checks if a rune is a digit.
-func IsDigit(runeChar rune) bool {
+func IsDigit(runeChar rune, pos int) bool {
 	const extraDigits = "."
-	return unicode.IsDigit(runeChar) || strings.Contains(extraDigits, string(runeChar))
+	return unicode.IsDigit(runeChar) || (pos > 0 && strings.Contains(extraDigits, string(runeChar)))
 }
 
 // IsBinaryDigit checks if a rune is a 0 or 1.
@@ -32,7 +32,7 @@ func IsIdentifierChar(runeChar rune, pos int, extraRunes string, terminatorRunes
 	if unicode.IsLetter(runeChar) {
 		return true
 	}
-	if pos > 0 && IsDigit(runeChar) {
+	if pos > 0 && IsDigit(runeChar, pos) {
 		return true
 	}
 	if pos > 0 && strings.Contains(terminatorRunes, string(runeChar)) {

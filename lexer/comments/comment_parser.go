@@ -37,7 +37,7 @@ func (p *CommentParser) ParseEndOfComment(r rune) bool {
 
 	ce := []rune(p.commentEnd)
 
-	if ce[len(p.parsedEnd)] != r {
+	if len(p.parsedEnd) >= len(ce) || ce[len(p.parsedEnd)] != r {
 		p.parsedEnd = ""
 		return false
 	}

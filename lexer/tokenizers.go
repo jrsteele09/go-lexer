@@ -10,28 +10,28 @@ import (
 
 // NumberTokenizer processes numeric literals.
 func NumberTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
-	parsedString := initialString
+	parsedNumber := initialString
 
 	return func(r rune) ([]Token, completed, error) {
-		if utils.IsDigit(r) {
-			parsedString = parsedString + string(r)
-		} else if tf.languageConfig.IsCustomTokenizer(parsedString + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
-			parsedString += string(r)
-			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedString](tf, parsedString))
+		if utils.IsDigit(r, len(parsedNumber)) {
+			parsedNumber = parsedNumber + string(r)
+		} else if tf.languageConfig.IsCustomTokenizer(parsedNumber + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
+			parsedNumber += string(r)
+			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedNumber](tf, parsedNumber))
 			return nil, false, nil
 		} else {
 			tf.SetOverFlow(r)
-			number, err := utils.StringToNumber(parsedString)
+			number, err := utils.StringToNumber(parsedNumber)
 			if err != nil {
 				return nil, false, errors.Wrap(err, "numberTokenizer stringToNumber")
 			}
 			switch number.(type) {
 			case float64:
-				return []Token{NewToken(NumberLiteral, parsedString, number)}, true, nil
+				return []Token{NewToken(NumberLiteral, parsedNumber, number)}, true, nil
 			case int64:
-				return []Token{NewToken(IntegerLiteral, parsedString, number)}, true, nil
+				return []Token{NewToken(IntegerLiteral, parsedNumber, number)}, true, nil
 			}
-			return []Token{NewToken(NumberLiteral, parsedString, number)}, true, nil
+			return []Token{NewToken(NumberLiteral, parsedNumber, number)}, true, nil
 		}
 		return nil, false, nil
 	}
@@ -39,96 +39,130 @@ func NumberTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 
 // BinaryTokenizer processes a binary number
 func BinaryTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
-	parsedString := ""
+	var builder strings.Builder
+
 	if initialString == "0" || initialString == "1" {
-		parsedString = initialString
+		builder.WriteString(initialString)
 	}
 
 	return func(r rune) ([]Token, completed, error) {
 		if utils.IsBinaryDigit(r) {
-			parsedString = parsedString + string(r)
-		} else if tf.languageConfig.IsCustomTokenizer(parsedString + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
-			parsedString += string(r)
-			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedString](tf, parsedString))
+			builder.WriteRune(r)
 			return nil, false, nil
-		} else {
-			tf.SetOverFlow(r)
-			number, err := utils.BinaryStringToNumber(parsedString)
-			if err != nil {
-				return nil, true, fmt.Errorf("BinaryTokenizer BinaryStringToNumber [%w]", err)
-			}
-			return []Token{NewToken(IntegerLiteral, parsedString, number)}, true, nil
 		}
-		return nil, false, nil
+
+		current := builder.String()
+
+		// Not a digit, perhaps a custom tokenizer, e.g. "0x"
+		if tf.languageConfig.IsCustomTokenizer(current + string(r)) {
+			builder.WriteRune(r)
+			tokenizerPrefix := builder.String()
+			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[tokenizerPrefix](tf, tokenizerPrefix))
+			return nil, false, nil
+		}
+
+		tf.SetOverFlow(r)
+
+		number, err := utils.BinaryStringToNumber(current)
+		if err != nil {
+			return nil, true, fmt.Errorf("BinaryTokenizer BinaryStringToNumber [%w]", err)
+		}
+
+		return []Token{
+			NewToken(IntegerLiteral, current, number),
+		}, true, nil
 	}
 }
 
 // HexTokenizer processes hex literals.
-func HexTokenizer(tf *TokenCreator, initalString string) TokenizerHandler {
-	var parsedString string
-	if initalString == "" || initalString == "$" {
-		parsedString = "0x"
+func HexTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
+	var builder strings.Builder
+
+	if initialString == "" || initialString == "$" {
+		builder.WriteString("0x")
 	}
 
 	return func(r rune) ([]Token, completed, error) {
 		if utils.IsHexDigit(r) {
-			parsedString = parsedString + string(r)
-		} else {
-			tf.SetOverFlow(r)
-
-			number, err := utils.HexToNumber(parsedString)
-			if err != nil {
-				return nil, false, errors.Wrap(err, "hexTokenizer stringToNumber")
-			}
-			return []Token{NewToken(HexLiteral, parsedString, number)}, true, nil
+			builder.WriteRune(r)
+			return nil, false, nil
 		}
-		return nil, false, nil
+
+		tf.SetOverFlow(r)
+
+		parsedString := builder.String()
+
+		number, err := utils.HexToNumber(parsedString)
+		if err != nil {
+			return nil, false, errors.Wrap(err, "HexTokenizer HexToNumber")
+		}
+
+		return []Token{
+			NewToken(HexLiteral, parsedString, number),
+		}, true, nil
 	}
 }
 
 // StringTokenizer processes string literals.
 func StringTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	startRune := initialString
-	var parsedString string
-	tf.parsingString = true
 
-	return func(runeChar rune) ([]Token, completed, error) {
-		if string(runeChar) == startRune {
-			tf.parsingString = false
-			return []Token{NewToken(StringLiteral, "", parsedString)}, true, nil
+	var builder strings.Builder
+
+	return func(r rune) ([]Token, completed, error) {
+		if string(r) == startRune {
+			return []Token{
+				NewToken(StringLiteral, "", builder.String()),
+			}, true, nil
 		}
 
-		parsedString += string(runeChar)
+		builder.WriteRune(r)
 		return nil, false, nil
 	}
 }
 
 // IdentifierTokenizer processes identifiers like variable names.
 func IdentifierTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
-	parsedString := initialString
+	var builder strings.Builder
+	builder.WriteString(initialString)
 
-	return func(runeChar rune) ([]Token, completed, error) {
-		if !utils.IsIdentifierChar(runeChar, len(parsedString), tf.languageConfig.ExtendedIdentifierRunes, tf.languageConfig.IdentifierTermination) {
-			tf.SetOverFlow(runeChar)
+	return func(r rune) ([]Token, completed, error) {
+		if !utils.IsIdentifierChar(
+			r,
+			builder.Len(),
+			tf.languageConfig.ExtendedIdentifierRunes,
+			tf.languageConfig.IdentifierTermination,
+		) {
+			tf.SetOverFlow(r)
 
-			if tf.commentParser.IsStartOfComment(parsedString) {
+			identifier := builder.String()
+
+			if tf.commentParser.IsStartOfComment(identifier) {
 				return nil, false, nil
 			}
-			t := tf.languageConfig.tokenFromIdentifier(parsedString)
-			if t.ID == NullType {
-				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
-			}
-			return []Token{t}, true, nil
-		}
-		parsedString += string(runeChar)
 
-		if strings.Contains(tf.languageConfig.IdentifierTermination, string(runeChar)) {
-			t := tf.languageConfig.tokenFromIdentifier(parsedString)
+			t := tf.languageConfig.tokenFromIdentifier(identifier)
 			if t.ID == NullType {
-				return nil, true, fmt.Errorf("unknown identifier %s", parsedString)
+				return nil, true, fmt.Errorf("unknown identifier %s", identifier)
 			}
+
 			return []Token{t}, true, nil
 		}
+
+		builder.WriteRune(r)
+
+		rStr := string(r)
+		if strings.Contains(tf.languageConfig.IdentifierTermination, rStr) {
+			identifier := builder.String()
+
+			t := tf.languageConfig.tokenFromIdentifier(identifier)
+			if t.ID == NullType {
+				return nil, true, fmt.Errorf("unknown identifier %s", identifier)
+			}
+
+			return []Token{t}, true, nil
+		}
+
 		return nil, false, nil
 	}
 }

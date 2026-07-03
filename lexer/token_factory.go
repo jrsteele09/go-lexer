@@ -14,7 +14,6 @@ type TokenCreator struct {
 	currentTokenizer TokenizerHandler
 	commentParser    *comments.CommentParser
 	languageConfig   *LanguageConfig
-	parsingString    bool
 }
 
 // NewTokenCreator initializes and returns a new TokenFactory for a given lexer.
@@ -85,7 +84,7 @@ func (tf *TokenCreator) HasRuneOverflow() bool {
 }
 
 // OverflowRune returns an overflow rune if available, or '\n' if not.
-// It should be preceded by a call to HadRuneOverflow
+// It should be preceded by a call to HasRuneOverflow
 func (tf *TokenCreator) OverflowRune() rune {
 	if tf.overflowRune == nil {
 		return '\n'
