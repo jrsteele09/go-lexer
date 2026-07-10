@@ -187,6 +187,24 @@ func TestBinary(t *testing.T) {
 	require.Equal(t, lexer.EndOfLineType, tokens[3].ID)
 }
 
+// TestStringEscapeSequences tests that escape sequences inside string literals are decoded correctly.
+func TestStringEscapeSequences(t *testing.T) {
+	l := NewBasicLexer()
+
+	// Escaped quote inside a double-quoted string
+	tokens, err := l.TokenizeLine(`"say \"hello\""`, "testfile", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(tokens))
+	require.Equal(t, lexer.StringLiteral, tokens[0].ID)
+	require.Equal(t, `say "hello"`, tokens[0].Value)
+
+	// Common escape sequences: \n, \t, \\
+	tokens, err = l.TokenizeLine(`"line1\nline2\ttab\\back"`, "testfile", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(tokens))
+	require.Equal(t, "line1\nline2\ttab\\back", tokens[0].Value)
+}
+
 // TestIdentifierExpressionWithComment tests tokenization when a comment follows an identifier
 func TestIdentifierExpressionWithComment(t *testing.T) {
 	sourceCode := "abc	// Define an identifier"
@@ -468,32 +486,25 @@ func NewBasicLexer() *lexer.Lexer {
 		ExtendedIdentifierRunes: "_",
 		IdentifierTermination:   ":$",
 		TokenCreators: []func(string) lexer.Token{
-			labelTokenCreator,
-			integerVariableTokenCreator,
-			basicLangstringVariableTokenCreator},
+			CommonLabelTokenCreator,
+			IntegerVariableTokenCreator,
+			BasicLangstringVariableTokenCreator},
 	})
 	return lexer.NewLexer(ll)
 }
 
-func integerVariableTokenCreator(identifier string) lexer.Token {
+func IntegerVariableTokenCreator(identifier string) lexer.Token {
 	if validStringVariableName(identifier) || validLabelName(identifier) {
 		return lexer.Token{}
 	}
 	return lexer.NewToken(IntegerVariableToken, identifier, nil)
 }
 
-func basicLangstringVariableTokenCreator(identifier string) lexer.Token {
+func BasicLangstringVariableTokenCreator(identifier string) lexer.Token {
 	if !validStringVariableName(identifier) || validLabelName(identifier) {
 		return lexer.Token{}
 	}
 	return lexer.NewToken(StringVariableToken, identifier, nil)
-}
-
-func labelTokenCreator(identifier string) lexer.Token {
-	if !validLabelName(identifier) {
-		return lexer.Token{}
-	}
-	return lexer.NewToken(LabelToken, identifier, 0)
 }
 
 // validStringVariableName checks if an identifier is a valid string variable name
@@ -504,10 +515,18 @@ func validStringVariableName(identifier string) bool {
 	if !utils.IsIdentifierChar([]rune(identifier)[0], 0, "_", "") {
 		return false
 	}
+	// This is for old BASIC style string variables that end with a $ sign
 	if !strings.HasSuffix(identifier, "$") {
 		return false
 	}
 	return true
+}
+
+func CommonLabelTokenCreator(identifier string) lexer.Token {
+	if !validLabelName(identifier) {
+		return lexer.Token{}
+	}
+	return lexer.NewToken(LabelToken, identifier, nil)
 }
 
 // validLabelName checks if an identifier is a valid label name

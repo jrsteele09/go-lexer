@@ -8,14 +8,14 @@ import (
 )
 
 // StringToNumber converts a string to a numerical value.
-func StringToNumber(strNum string) (interface{}, error) {
+func StringToNumber(strNum string) (any, error) {
 	if strings.Contains(strNum, ".") {
 		return strconv.ParseFloat(strNum, 64)
 	}
 	return strconv.ParseInt(strNum, 10, 64)
 }
 
-func BinaryStringToNumber(binaryNumber string) (interface{}, error) {
+func BinaryStringToNumber(binaryNumber string) (any, error) {
 	// Convert the binary string to an unsigned integer
 	result, err := strconv.ParseUint(binaryNumber, 2, 64)
 	if err != nil {
@@ -34,7 +34,7 @@ func BinaryStringToNumber(binaryNumber string) (interface{}, error) {
 	}
 }
 
-func HexToNumber(hexString string) (interface{}, error) {
+func HexToNumber(hexString string) (any, error) {
 	// Remove the "0x" prefix
 	if len(hexString) > 2 && hexString[:2] == "0x" {
 		hexString = hexString[2:]

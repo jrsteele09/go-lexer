@@ -54,7 +54,7 @@ func (t Token) String() string {
 // NewToken is a constructor function for creating a new Token.
 // It takes a TokenIdentifier to specify the type, a string for the literal representation,
 // and an optional value that the token represents.
-func NewToken(id TokenIdentifier, literal string, value interface{}) Token {
+func NewToken(id TokenIdentifier, literal string, value any) Token {
 	return Token{
 		ID:      id,
 		Literal: literal,

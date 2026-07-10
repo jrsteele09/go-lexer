@@ -62,6 +62,7 @@ func (l *Lexer) TokenizeLine(line string, filename string, lineNo uint) ([]Token
 		}
 		for _, token := range tokens {
 			token.SourceLine = lineNo
+			token.Filename = filename
 			token.SourceColumn = uint(column)
 			lineTokens = append(lineTokens, token)
 		}

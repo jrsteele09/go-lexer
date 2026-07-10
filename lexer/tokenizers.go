@@ -10,28 +10,29 @@ import (
 
 // NumberTokenizer processes numeric literals.
 func NumberTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
-	parsedNumber := initialString
+	var parsedNumber strings.Builder
+	parsedNumber.WriteString(initialString)
 
 	return func(r rune) ([]Token, completed, error) {
-		if utils.IsDigit(r, len(parsedNumber)) {
-			parsedNumber = parsedNumber + string(r)
-		} else if tf.languageConfig.IsCustomTokenizer(parsedNumber + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
-			parsedNumber += string(r)
-			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedNumber](tf, parsedNumber))
+		if utils.IsDigit(r, parsedNumber.Len()) {
+			parsedNumber.WriteRune(r)
+		} else if tf.languageConfig.IsCustomTokenizer(parsedNumber.String() + string(r)) { // Not a digit, perhaps a custom tokenizer, i.e. hex: "0xFF"
+			parsedNumber.WriteRune(r)
+			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[parsedNumber.String()](tf, parsedNumber.String()))
 			return nil, false, nil
 		} else {
 			tf.SetOverFlow(r)
-			number, err := utils.StringToNumber(parsedNumber)
+			number, err := utils.StringToNumber(parsedNumber.String())
 			if err != nil {
 				return nil, false, errors.Wrap(err, "numberTokenizer stringToNumber")
 			}
 			switch number.(type) {
 			case float64:
-				return []Token{NewToken(NumberLiteral, parsedNumber, number)}, true, nil
+				return []Token{NewToken(NumberLiteral, parsedNumber.String(), number)}, true, nil
 			case int64:
-				return []Token{NewToken(IntegerLiteral, parsedNumber, number)}, true, nil
+				return []Token{NewToken(IntegerLiteral, parsedNumber.String(), number)}, true, nil
 			}
-			return []Token{NewToken(NumberLiteral, parsedNumber, number)}, true, nil
+			return []Token{NewToken(NumberLiteral, parsedNumber.String(), number)}, true, nil
 		}
 		return nil, false, nil
 	}
@@ -52,15 +53,6 @@ func BinaryTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 		}
 
 		current := builder.String()
-
-		// Not a digit, perhaps a custom tokenizer, e.g. "0x"
-		if tf.languageConfig.IsCustomTokenizer(current + string(r)) {
-			builder.WriteRune(r)
-			tokenizerPrefix := builder.String()
-			tf.SetTokenizer(tf.languageConfig.PrefixTokenizers[tokenizerPrefix](tf, tokenizerPrefix))
-			return nil, false, nil
-		}
-
 		tf.SetOverFlow(r)
 
 		number, err := utils.BinaryStringToNumber(current)
@@ -103,13 +95,39 @@ func HexTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	}
 }
 
-// StringTokenizer processes string literals.
+// StringTokenizer processes string literals, including backslash escape sequences.
+// Supported escapes: \n (newline), \r (carriage return), \t (tab), \0 (null),
+// \\ (backslash), and \<quote> to embed the surrounding quote character.
 func StringTokenizer(tf *TokenCreator, initialString string) TokenizerHandler {
 	startRune := initialString
 
 	var builder strings.Builder
+	escaped := false
 
 	return func(r rune) ([]Token, completed, error) {
+		if escaped {
+			escaped = false
+			switch r {
+			case 'n':
+				builder.WriteRune('\n')
+			case 'r':
+				builder.WriteRune('\r')
+			case 't':
+				builder.WriteRune('\t')
+			case '0':
+				builder.WriteRune('\000')
+			default:
+				// Handles \\ and \<quote>, and any unrecognised sequence
+				builder.WriteRune(r)
+			}
+			return nil, false, nil
+		}
+
+		if r == '\\' {
+			escaped = true
+			return nil, false, nil
+		}
+
 		if string(r) == startRune {
 			return []Token{
 				NewToken(StringLiteral, "", builder.String()),

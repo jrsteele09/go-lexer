@@ -27,7 +27,7 @@ func IsStringQuotes(runeChar rune) bool {
 	return strings.Contains(startOfString, string(runeChar))
 }
 
-// IsIdentifierChar checks if a rune is valid in an identifier.
+// IsIdentifierChar checks if a rune is valid for an identifier, considering its position, extra valid runes, and terminator runes.
 func IsIdentifierChar(runeChar rune, pos int, extraRunes string, terminatorRunes string) bool {
 	if unicode.IsLetter(runeChar) {
 		return true
